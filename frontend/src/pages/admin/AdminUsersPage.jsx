@@ -134,6 +134,7 @@ function CreateUserForm({ onCreated, onCancel }) {
 
 function UserRow({ userItem, onRefetch }) {
     const [adjustAmount, setAdjustAmount] = useState('');
+    const [adjustReason, setAdjustReason] = useState('');
     const [showAdjust, setShowAdjust] = useState(false);
     const [loading, setLoading] = useState(false);
 
@@ -142,10 +143,14 @@ function UserRow({ userItem, onRefetch }) {
         if (!amount) return;
         setLoading(true);
         try {
-            await client.post(`/admin/users/${userItem.id}/adjust-balance`, { amount });
+            await client.post(`/admin/users/${userItem.id}/adjust-balance`, { 
+                amount, 
+                reason: adjustReason 
+            });
             toast.success(`Balance adjusted by ${amount > 0 ? '+' : ''}${amount}`);
             setShowAdjust(false);
             setAdjustAmount('');
+            setAdjustReason('');
             onRefetch();
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Failed');
@@ -220,18 +225,27 @@ function UserRow({ userItem, onRefetch }) {
             </div>
 
             {showAdjust && (
-                <div className="mt-3 flex items-center gap-2 animate-fade-in">
+                <div className="mt-3 space-y-2 animate-fade-in">
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="number"
+                            value={adjustAmount}
+                            onChange={(e) => setAdjustAmount(e.target.value)}
+                            placeholder="Amount (negative to deduct)"
+                            className="flex-1 px-4 py-2 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white text-sm focus:outline-none focus:border-accent-500/50"
+                        />
+                        <button onClick={handleAdjust} disabled={loading} className="btn-primary text-sm flex items-center gap-1">
+                            {loading && <Loader2 className="w-3 h-3 animate-spin" />}
+                            Apply
+                        </button>
+                    </div>
                     <input
-                        type="number"
-                        value={adjustAmount}
-                        onChange={(e) => setAdjustAmount(e.target.value)}
-                        placeholder="Amount (negative to deduct)"
-                        className="flex-1 px-4 py-2 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white text-sm focus:outline-none focus:border-accent-500/50"
+                        type="text"
+                        value={adjustReason}
+                        onChange={(e) => setAdjustReason(e.target.value)}
+                        placeholder="Reason (optional)"
+                        className="w-full px-4 py-2 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white text-sm focus:outline-none focus:border-accent-500/50"
                     />
-                    <button onClick={handleAdjust} disabled={loading} className="btn-primary text-sm flex items-center gap-1">
-                        {loading && <Loader2 className="w-3 h-3 animate-spin" />}
-                        Apply
-                    </button>
                 </div>
             )}
         </div>
