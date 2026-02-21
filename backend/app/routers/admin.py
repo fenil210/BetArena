@@ -17,6 +17,8 @@ from app.services.football_api import (
     fetch_teams_for_competition,
     fetch_fixtures_for_competition,
     fetch_squad_for_team,
+    fetch_matches_for_matchday,
+    fetch_competition_standings,
     FootballAPIError,
 )
 
@@ -266,3 +268,57 @@ def list_team_players(
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
     return team.players
+
+
+# ─────────────── Fetch matches for tournament + matchday ───────────────
+
+@router.get("/tournaments/{tournament_id}/matches")
+async def get_tournament_matches_by_matchday(
+    tournament_id: str,
+    matchday: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Fetch matches from football-data.org for a tournament's competition
+    on a specific matchday. Returns live API data (not stored locally).
+    """
+    tournament = db.query(Tournament).filter(Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
+    try:
+        matches = await fetch_matches_for_matchday(tournament.competition_id, matchday)
+    except FootballAPIError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    return {
+        "competition_id": tournament.competition_id,
+        "tournament_id": tournament_id,
+        "matchday": matchday,
+        "matches": matches,
+    }
+
+
+@router.get("/tournaments/{tournament_id}/current-matchday")
+async def get_tournament_current_matchday(
+    tournament_id: str,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Get the current matchday for a tournament's competition from football-data.org.
+    """
+    tournament = db.query(Tournament).filter(Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
+    try:
+        standings = await fetch_competition_standings(tournament.competition_id)
+    except FootballAPIError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    if not standings:
+        raise HTTPException(status_code=404, detail="Competition data not available")
+
+    return standings

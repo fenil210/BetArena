@@ -123,3 +123,53 @@ async def fetch_squad_for_team(team_id: int) -> list[dict]:
             "date_of_birth": player.get("dateOfBirth"),
         })
     return result
+
+
+async def fetch_matches_for_matchday(competition_id: int, matchday: int) -> list[dict]:
+    """
+    Fetch all matches for a specific competition and matchday.
+    Returns a list of dicts with keys: id, home_team, away_team, kickoff_at, 
+    status, matchday, stage.
+    """
+    data = await _get(f"/competitions/{competition_id}/matches?matchday={matchday}")
+    result = []
+    for match in data.get("matches", []):
+        home_team = match.get("homeTeam", {})
+        away_team = match.get("awayTeam", {})
+        result.append({
+            "id": match["id"],
+            "home_team": {
+                "id": home_team.get("id"),
+                "name": home_team.get("name"),
+                "short_name": home_team.get("shortName"),
+                "crest_url": home_team.get("crest"),
+            },
+            "away_team": {
+                "id": away_team.get("id"),
+                "name": away_team.get("name"),
+                "short_name": away_team.get("shortName"),
+                "crest_url": away_team.get("crest"),
+            },
+            "kickoff_at": match.get("utcDate"),
+            "status": match.get("status"),
+            "matchday": match.get("matchday"),
+            "stage": match.get("stage"),
+        })
+    return result
+
+
+async def fetch_competition_standings(competition_id: int) -> dict | None:
+    """
+    Fetch current standings for a competition to get current matchday info.
+    Returns dict with current_matchday or None if not available.
+    """
+    try:
+        data = await _get(f"/competitions/{competition_id}")
+        current_season = data.get("currentSeason", {})
+        return {
+            "current_matchday": current_season.get("currentMatchday"),
+            "season_start": current_season.get("startDate"),
+            "season_end": current_season.get("endDate"),
+        }
+    except FootballAPIError:
+        return None

@@ -164,6 +164,22 @@ export function useTeamPlayers(teamId) {
     });
 }
 
+export function useMatchesByMatchday(tournamentId, matchday) {
+    return useQuery({
+        queryKey: ['admin', 'matches', tournamentId, matchday],
+        queryFn: () => client.get(`/admin/tournaments/${tournamentId}/matches?matchday=${matchday}`).then(r => r.data),
+        enabled: !!tournamentId && !!matchday && matchday > 0,
+    });
+}
+
+export function useCurrentMatchday(tournamentId) {
+    return useQuery({
+        queryKey: ['admin', 'current-matchday', tournamentId],
+        queryFn: () => client.get(`/admin/tournaments/${tournamentId}/current-matchday`).then(r => r.data),
+        enabled: !!tournamentId,
+    });
+}
+
 // ─── Admin: Users ─────────────────────────
 export function useUsers() {
     return useQuery({

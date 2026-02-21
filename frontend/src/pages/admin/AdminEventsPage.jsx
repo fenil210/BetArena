@@ -5,8 +5,10 @@ import {
     useCreateEvent,
     useUpdateEventStatus,
     useDeleteEvent,
+    useMatchesByMatchday,
+    useCurrentMatchday,
 } from '../../hooks/useApi';
-import { CalendarPlus, Plus, Loader2, Clock, Tv, CheckCircle, XCircle, Trash2 } from 'lucide-react';
+import { CalendarPlus, Plus, Loader2, Clock, Tv, CheckCircle, XCircle, Trash2, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatDateTime } from '../../utils/formatDate';
 
@@ -93,6 +95,18 @@ function CreateEventForm({ tournaments, onCreated, onCancel }) {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [startsAt, setStartsAt] = useState('');
+    const [matchId, setMatchId] = useState('');
+
+    // Matchday fetcher state
+    const [useApiSource, setUseApiSource] = useState(false);
+    const [matchday, setMatchday] = useState('');
+    const [showMatchSelector, setShowMatchSelector] = useState(false);
+
+    const { data: currentMatchdayData } = useCurrentMatchday(tournamentId);
+    const { data: matchesData, isLoading: matchesLoading, refetch: refetchMatches } = useMatchesByMatchday(
+        tournamentId,
+        parseInt(matchday, 10)
+    );
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -104,6 +118,7 @@ function CreateEventForm({ tournaments, onCreated, onCancel }) {
         try {
             await createEvent.mutateAsync({
                 tournament_id: tournamentId,
+                match_id: matchId || null,
                 title,
                 description: description || null,
                 starts_at: startsAt ? new Date(startsAt).toISOString() : null,
@@ -112,6 +127,42 @@ function CreateEventForm({ tournaments, onCreated, onCancel }) {
             onCreated();
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Failed to create event');
+        }
+    };
+
+    const handleFetchMatches = () => {
+        if (!tournamentId) {
+            toast.error('Please select a tournament first');
+            return;
+        }
+        if (!matchday || matchday < 1) {
+            toast.error('Please enter a valid matchday');
+            return;
+        }
+        setShowMatchSelector(true);
+        refetchMatches();
+    };
+
+    const handleSelectMatch = (match) => {
+        const homeName = match.home_team.short_name || match.home_team.name;
+        const awayName = match.away_team.short_name || match.away_team.name;
+        setTitle(`${homeName} vs ${awayName}`);
+        setDescription(`Matchday ${match.matchday}`);
+        if (match.kickoff_at) {
+            // Convert UTC to local datetime-local format
+            const date = new Date(match.kickoff_at);
+            const localIso = new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
+                .toISOString().slice(0, 16);
+            setStartsAt(localIso);
+        }
+        setMatchId(match.id.toString());
+        setShowMatchSelector(false);
+        toast.success('Match selected! Form has been pre-filled.');
+    };
+
+    const handleUseCurrentMatchday = () => {
+        if (currentMatchdayData?.current_matchday) {
+            setMatchday(currentMatchdayData.current_matchday.toString());
         }
     };
 
@@ -124,7 +175,10 @@ function CreateEventForm({ tournaments, onCreated, onCancel }) {
                     <label className="block text-sm text-dark-400 mb-1">Tournament *</label>
                     <select
                         value={tournamentId}
-                        onChange={(e) => setTournamentId(e.target.value)}
+                        onChange={(e) => {
+                            setTournamentId(e.target.value);
+                            setShowMatchSelector(false);
+                        }}
                         className="w-full px-4 py-2.5 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50"
                         required
                     >
@@ -145,6 +199,93 @@ function CreateEventForm({ tournaments, onCreated, onCancel }) {
                     />
                 </div>
             </div>
+
+            {/* API Source Toggle */}
+            <div className="flex items-center gap-3 pt-2">
+                <button
+                    type="button"
+                    onClick={() => setUseApiSource(!useApiSource)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all ${
+                        useApiSource
+                            ? 'bg-accent-600/20 text-accent-400 border border-accent-500/30'
+                            : 'bg-dark-700/60 text-dark-400 border border-dark-500/30'
+                    }`}
+                >
+                    <Search className="w-4 h-4" />
+                    {useApiSource ? 'Using API Data' : 'Fetch from football-data.org'}
+                </button>
+                {matchId && (
+                    <span className="text-xs text-accent-400 bg-accent-600/10 px-2 py-1 rounded">
+                        Match ID: {matchId}
+                    </span>
+                )}
+            </div>
+
+            {/* Matchday Selector */}
+            {useApiSource && (
+                <div className="bg-dark-800/50 rounded-xl p-4 space-y-4 border border-dark-600/30">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="flex-1">
+                            <label className="block text-sm text-dark-400 mb-1">Matchday</label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="50"
+                                    value={matchday}
+                                    onChange={(e) => setMatchday(e.target.value)}
+                                    placeholder="e.g. 27"
+                                    className="flex-1 px-4 py-2 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50"
+                                />
+                                {currentMatchdayData?.current_matchday && (
+                                    <button
+                                        type="button"
+                                        onClick={handleUseCurrentMatchday}
+                                        className="px-3 py-2 rounded-xl bg-dark-600/50 text-dark-300 text-sm hover:bg-dark-600 transition-colors"
+                                        title="Use current matchday"
+                                    >
+                                        Current ({currentMatchdayData.current_matchday})
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex items-end">
+                            <button
+                                type="button"
+                                onClick={handleFetchMatches}
+                                disabled={matchesLoading || !tournamentId}
+                                className="btn-primary flex items-center gap-2 disabled:opacity-50"
+                            >
+                                {matchesLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                                <Search className="w-4 h-4" />
+                                Fetch Matches
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Match Selector */}
+                    {showMatchSelector && matchesData && (
+                        <div className="space-y-2 animate-fade-in">
+                            <p className="text-sm text-dark-400">
+                                Showing {matchesData.matches?.length || 0} matches for Matchday {matchesData.matchday}
+                            </p>
+                            {matchesData.matches?.length === 0 ? (
+                                <p className="text-dark-500 text-sm">No matches found for this matchday.</p>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-2 max-h-80 overflow-y-auto">
+                                    {matchesData.matches.map((match) => (
+                                        <MatchCard
+                                            key={match.id}
+                                            match={match}
+                                            onSelect={() => handleSelectMatch(match)}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div>
                 <label className="block text-sm text-dark-400 mb-1">Title *</label>
@@ -175,6 +316,79 @@ function CreateEventForm({ tournaments, onCreated, onCancel }) {
                 <button type="button" onClick={onCancel} className="btn-secondary">Cancel</button>
             </div>
         </form>
+    );
+}
+
+/* ─────── Match Card for Selection ─────── */
+function MatchCard({ match, onSelect }) {
+    const statusColors = {
+        SCHEDULED: 'text-blue-400',
+        LIVE: 'text-accent-400',
+        IN_PLAY: 'text-accent-400',
+        PAUSED: 'text-yellow-400',
+        FINISHED: 'text-dark-400',
+        POSTPONED: 'text-loss-400',
+        SUSPENDED: 'text-loss-400',
+        CANCELLED: 'text-loss-400',
+    };
+
+    const statusLabels = {
+        SCHEDULED: 'Upcoming',
+        LIVE: 'Live',
+        IN_PLAY: 'Live',
+        PAUSED: 'Paused',
+        FINISHED: 'Finished',
+        POSTPONED: 'Postponed',
+        SUSPENDED: 'Suspended',
+        CANCELLED: 'Cancelled',
+    };
+
+    return (
+        <button
+            type="button"
+            onClick={onSelect}
+            className="w-full text-left p-3 rounded-xl bg-dark-700/40 hover:bg-dark-700/70 border border-dark-600/30 
+                       hover:border-accent-500/30 transition-all group"
+        >
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {/* Home Team */}
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {match.home_team.crest_url && (
+                            <img src={match.home_team.crest_url} alt="" className="w-6 h-6 object-contain" />
+                        )}
+                        <span className="text-white font-medium truncate">
+                            {match.home_team.short_name || match.home_team.name}
+                        </span>
+                    </div>
+
+                    {/* VS */}
+                    <span className="text-dark-500 text-sm">vs</span>
+
+                    {/* Away Team */}
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {match.away_team.crest_url && (
+                            <img src={match.away_team.crest_url} alt="" className="w-6 h-6 object-contain" />
+                        )}
+                        <span className="text-white font-medium truncate">
+                            {match.away_team.short_name || match.away_team.name}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Status & Date */}
+                <div className="text-right shrink-0">
+                    <span className={`text-xs font-medium ${statusColors[match.status] || 'text-dark-400'}`}>
+                        {statusLabels[match.status] || match.status}
+                    </span>
+                    {match.kickoff_at && (
+                        <p className="text-xs text-dark-500">
+                            {formatDateTime(match.kickoff_at)}
+                        </p>
+                    )}
+                </div>
+            </div>
+        </button>
     );
 }
 
@@ -261,4 +475,3 @@ function EventRow({ event, onRefetch }) {
         </div>
     );
 }
-
