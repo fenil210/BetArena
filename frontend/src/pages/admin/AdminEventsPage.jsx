@@ -4,9 +4,11 @@ import {
     useTournamentEvents,
     useCreateEvent,
     useUpdateEventStatus,
+    useDeleteEvent,
 } from '../../hooks/useApi';
-import { CalendarPlus, Plus, Loader2, Clock, Tv, CheckCircle, XCircle } from 'lucide-react';
+import { CalendarPlus, Plus, Loader2, Clock, Tv, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { formatDateTime } from '../../utils/formatDate';
 
 export default function AdminEventsPage() {
     const { data: tournaments } = useTournaments();
@@ -179,6 +181,7 @@ function CreateEventForm({ tournaments, onCreated, onCancel }) {
 /* ─────── Event Row ─────── */
 function EventRow({ event, onRefetch }) {
     const updateStatus = useUpdateEventStatus();
+    const deleteEvent = useDeleteEvent();
 
     const statusIcons = {
         upcoming: <Clock className="w-4 h-4 text-blue-400" />,
@@ -197,6 +200,17 @@ function EventRow({ event, onRefetch }) {
         }
     };
 
+    const handleDelete = async () => {
+        if (!window.confirm(`Delete "${event.title}"?\n\nThis will void all open bets (refund stakes) and permanently remove the event, its markets, and all bets.`)) return;
+        try {
+            const result = await deleteEvent.mutateAsync(event.id);
+            toast.success(`Deleted! ${result.bets_voided} bets voided, ${result.coins_refunded} coins refunded.`);
+            onRefetch();
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Failed to delete');
+        }
+    };
+
     return (
         <div className="glass-card p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -206,8 +220,8 @@ function EventRow({ event, onRefetch }) {
                         <div className="flex items-center gap-1">
                             {statusIcons[event.status]}
                             <span className={`capitalize ${event.status === 'live' ? 'text-accent-400' :
-                                    event.status === 'upcoming' ? 'text-blue-400' :
-                                        event.status === 'cancelled' ? 'text-loss-400' : 'text-dark-400'
+                                event.status === 'upcoming' ? 'text-blue-400' :
+                                    event.status === 'cancelled' ? 'text-loss-400' : 'text-dark-400'
                                 }`}>
                                 {event.status}
                             </span>
@@ -217,23 +231,34 @@ function EventRow({ event, onRefetch }) {
                         )}
                         {event.starts_at && (
                             <span className="text-dark-500">
-                                • {new Date(event.starts_at).toLocaleString()}
+                                • {formatDateTime(event.starts_at)}
                             </span>
                         )}
                     </div>
                 </div>
-                <select
-                    value={event.status}
-                    onChange={(e) => handleStatusChange(e.target.value)}
-                    disabled={updateStatus.isPending}
-                    className="px-3 py-1.5 rounded-lg bg-dark-700/60 border border-dark-500/40 text-xs text-white focus:outline-none shrink-0"
-                >
-                    <option value="upcoming">Upcoming</option>
-                    <option value="live">Live</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                </select>
+                <div className="flex items-center gap-2">
+                    <select
+                        value={event.status}
+                        onChange={(e) => handleStatusChange(e.target.value)}
+                        disabled={updateStatus.isPending}
+                        className="px-3 py-1.5 rounded-lg bg-dark-700/60 border border-dark-500/40 text-xs text-white focus:outline-none shrink-0"
+                    >
+                        <option value="upcoming">Upcoming</option>
+                        <option value="live">Live</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                    <button
+                        onClick={handleDelete}
+                        disabled={deleteEvent.isPending}
+                        className="p-1.5 rounded-lg text-dark-500 hover:text-loss-400 hover:bg-loss-400/10 transition-all"
+                        title="Delete event"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
         </div>
     );
 }
+

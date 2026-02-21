@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useFeed } from '../hooks/useApi';
 import { Zap, Target, Trophy, TrendingUp, ChevronDown } from 'lucide-react';
+import { formatDateTime } from '../utils/formatDate';
 
 export default function FeedPage() {
     const [limit, setLimit] = useState(20);
@@ -54,7 +55,7 @@ export default function FeedPage() {
                                 <div className="flex-1 min-w-0">
                                     <p className="text-dark-200">{item.description}</p>
                                     <p className="text-xs text-dark-500 mt-1">
-                                        {new Date(item.created_at).toLocaleString()}
+                                        {formatDateTime(item.created_at)}
                                     </p>
                                 </div>
                             </div>

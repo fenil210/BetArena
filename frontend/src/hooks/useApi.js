@@ -204,6 +204,18 @@ export function useUpdateEventStatus() {
     });
 }
 
+export function useDeleteEvent() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (eventId) =>
+            client.delete(`/admin/events/${eventId}`).then(r => r.data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['events'] });
+        },
+    });
+}
+
+
 export function useUpdateMarketStatus() {
     const qc = useQueryClient();
     return useMutation({

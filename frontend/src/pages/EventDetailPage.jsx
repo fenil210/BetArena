@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useEvent, useEventMarkets } from '../hooks/useApi';
 import MarketCard from '../components/MarketCard';
 import { Calendar, MapPin } from 'lucide-react';
+import { formatDateTime } from '../utils/formatDate';
 
 export default function EventDetailPage() {
     const { id } = useParams();
@@ -37,7 +38,7 @@ export default function EventDetailPage() {
                     {event.starts_at && (
                         <span className="text-sm text-dark-400 flex items-center gap-1">
                             <Calendar className="w-4 h-4" />
-                            {new Date(event.starts_at).toLocaleString()}
+                            {formatDateTime(event.starts_at)}
                         </span>
                     )}
                 </div>

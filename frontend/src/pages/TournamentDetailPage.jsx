@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useTournament, useTournamentEvents, useTournamentMarkets } from '../hooks/useApi';
 import MarketCard from '../components/MarketCard';
 import { Trophy, Calendar, ArrowRight, MapPin } from 'lucide-react';
+import { formatDateTime } from '../utils/formatDate';
 
 export default function TournamentDetailPage() {
     const { id } = useParams();
@@ -102,7 +103,7 @@ export default function TournamentDetailPage() {
                                             {event.starts_at && (
                                                 <span className="text-xs text-dark-400 flex items-center gap-1">
                                                     <Calendar className="w-3 h-3" />
-                                                    {new Date(event.starts_at).toLocaleString()}
+                                                    {formatDateTime(event.starts_at)}
                                                 </span>
                                             )}
                                         </div>

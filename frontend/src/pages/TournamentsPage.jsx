@@ -1,6 +1,7 @@
 import { useTournaments } from '../hooks/useApi';
 import { Link } from 'react-router-dom';
 import { Trophy, ArrowRight, Calendar } from 'lucide-react';
+import { formatDate } from '../utils/formatDate';
 
 export default function TournamentsPage() {
     const { data: tournaments, isLoading } = useTournaments();
@@ -47,7 +48,7 @@ export default function TournamentsPage() {
                                 </span>
                                 <span className="text-xs text-dark-500 flex items-center gap-1">
                                     <Calendar className="w-3 h-3" />
-                                    {new Date(t.created_at).toLocaleDateString()}
+                                    {formatDate(t.created_at)}
                                 </span>
                             </div>
                         </Link>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMyBets } from '../hooks/useApi';
 import { Ticket, Coins, CheckCircle, XCircle, Clock, Ban } from 'lucide-react';
+import { formatDateTime } from '../utils/formatDate';
 
 const TABS = [
     { key: '', label: 'All' },
@@ -35,8 +36,8 @@ export default function MyBetsPage() {
                         key={tab.key}
                         onClick={() => setActiveTab(tab.key)}
                         className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${activeTab === tab.key
-                                ? 'bg-accent-600/15 text-accent-400'
-                                : 'bg-dark-800/60 text-dark-400 hover:bg-dark-700/50 hover:text-white'
+                            ? 'bg-accent-600/15 text-accent-400'
+                            : 'bg-dark-800/60 text-dark-400 hover:bg-dark-700/50 hover:text-white'
                             }`}
                     >
                         {tab.label}
@@ -73,8 +74,8 @@ export default function MyBetsPage() {
                                     <div className="flex items-center gap-2 mb-1">
                                         {statusIcon[bet.status]}
                                         <span className={`text-sm font-medium capitalize ${bet.status === 'won' ? 'text-accent-400' :
-                                                bet.status === 'lost' ? 'text-loss-400' :
-                                                    bet.status === 'voided' ? 'text-dark-400' : 'text-blue-400'
+                                            bet.status === 'lost' ? 'text-loss-400' :
+                                                bet.status === 'voided' ? 'text-dark-400' : 'text-blue-400'
                                             }`}>
                                             {bet.status}
                                         </span>
@@ -86,7 +87,7 @@ export default function MyBetsPage() {
                                         {bet.market_question || 'Market'}
                                     </p>
                                     <p className="text-xs text-dark-500 mt-1">
-                                        {new Date(bet.placed_at).toLocaleString()}
+                                        {formatDateTime(bet.placed_at)}
                                     </p>
                                 </div>
                                 <div className="text-right shrink-0">

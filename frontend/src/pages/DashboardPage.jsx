@@ -1,4 +1,5 @@
 import { useTournaments, useLeaderboard, useFeed } from '../hooks/useApi';
+import { formatDateTime } from '../utils/formatDate';
 import { useAuth } from '../hooks/useAuth';
 import { Link } from 'react-router-dom';
 import {
@@ -103,10 +104,10 @@ export default function DashboardPage() {
                                     className="glass-card px-4 py-3 flex items-start gap-3"
                                 >
                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${item.action_type === 'bet_placed'
-                                            ? 'bg-accent-500/20 text-accent-400'
-                                            : item.action_type === 'market_settled'
-                                                ? 'bg-gold-500/20 text-gold-400'
-                                                : 'bg-dark-600/50 text-dark-300'
+                                        ? 'bg-accent-500/20 text-accent-400'
+                                        : item.action_type === 'market_settled'
+                                            ? 'bg-gold-500/20 text-gold-400'
+                                            : 'bg-dark-600/50 text-dark-300'
                                         }`}>
                                         {item.action_type === 'bet_placed' ? (
                                             <Target className="w-4 h-4" />
@@ -117,7 +118,7 @@ export default function DashboardPage() {
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm text-dark-200 truncate">{item.description}</p>
                                         <p className="text-xs text-dark-500 mt-0.5">
-                                            {new Date(item.created_at).toLocaleString()}
+                                            {formatDateTime(item.created_at)}
                                         </p>
                                     </div>
                                 </div>

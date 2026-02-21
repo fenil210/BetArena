@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { User, Coins, Shield, Calendar, Lock, Loader2 } from 'lucide-react';
 import client from '../api/client';
 import toast from 'react-hot-toast';
+import { formatDate } from '../utils/formatDate';
 
 export default function ProfilePage() {
     const { user, refreshUser } = useAuth();
@@ -71,7 +72,7 @@ export default function ProfilePage() {
                             <span className="text-xs text-dark-400">Joined</span>
                         </div>
                         <p className="text-lg font-semibold text-white">
-                            {new Date(user.created_at).toLocaleDateString()}
+                            {formatDate(user.created_at)}
                         </p>
                     </div>
                 </div>
