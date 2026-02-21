@@ -1,0 +1,21 @@
+# Don't copy local env files into the container
+.env
+.env.*
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Dev tools
+.vscode/
+.idea/
+.git/
+.gitignore
+
+# Docker
+docker-compose.yml
+Dockerfile
+
+# Docs
+*.md
