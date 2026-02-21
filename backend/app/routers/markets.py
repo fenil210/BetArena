@@ -211,3 +211,26 @@ def get_market(
     if not market:
         raise HTTPException(status_code=404, detail="Market not found")
     return market
+
+
+# ─────────────── Admin: List ALL markets for tournament ───────────────
+
+@router.get("/admin/tournaments/{tournament_id}/all-markets", response_model=list[MarketOut])
+def list_all_tournament_markets(
+    tournament_id: str,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Admin: List ALL markets for a tournament including:
+    - Tournament-level markets (winner, top scorer, etc.)
+    - All event/match-level markets
+    
+    Sorted by creation date (newest first).
+    """
+    return (
+        db.query(Market)
+        .filter(Market.tournament_id == tournament_id)
+        .order_by(Market.created_at.desc())
+        .all()
+    )

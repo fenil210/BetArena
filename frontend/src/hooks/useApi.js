@@ -51,6 +51,14 @@ export function useTournamentMarkets(tournamentId) {
     });
 }
 
+export function useAllTournamentMarkets(tournamentId) {
+    return useQuery({
+        queryKey: ['markets', 'admin', 'all', tournamentId],
+        queryFn: () => client.get(`/admin/tournaments/${tournamentId}/all-markets`).then(r => r.data),
+        enabled: !!tournamentId,
+    });
+}
+
 export function useMarket(id) {
     return useQuery({
         queryKey: ['market', id],

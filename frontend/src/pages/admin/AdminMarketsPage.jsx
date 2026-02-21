@@ -3,7 +3,7 @@ import {
     useTournaments,
     useTournamentEvents,
     useEventMarkets,
-    useTournamentMarkets,
+    useAllTournamentMarkets,
     useUpdateMarketStatus,
     useSettleMarket,
     useVoidMarket,
@@ -20,11 +20,13 @@ export default function AdminMarketsPage() {
     const [eventId, setEventId] = useState('');
     const { data: events } = useTournamentEvents(tournamentId);
     const { data: eventMarkets, isLoading: loadingEM, refetch: refetchEM } = useEventMarkets(eventId);
-    const { data: tournamentMarkets, isLoading: loadingTM, refetch: refetchTM } = useTournamentMarkets(tournamentId);
+    const { data: allMarkets, isLoading: loadingAll, refetch: refetchAll } = useAllTournamentMarkets(tournamentId);
 
-    const markets = eventId ? eventMarkets : tournamentMarkets;
-    const isLoading = eventId ? loadingEM : loadingTM;
-    const refetch = eventId ? refetchEM : refetchTM;
+    // When event is selected, show only that event's markets
+    // When only tournament is selected, show ALL markets (tournament + all events)
+    const markets = eventId ? eventMarkets : allMarkets;
+    const isLoading = eventId ? loadingEM : loadingAll;
+    const refetch = eventId ? refetchEM : refetchAll;
     const hasSelection = eventId || tournamentId;
 
     return (
@@ -52,13 +54,13 @@ export default function AdminMarketsPage() {
 
                 {tournamentId && (
                     <div className="animate-fade-in">
-                        <label className="block text-sm text-dark-400 mb-1">Event (optional — filter by match)</label>
+                        <label className="block text-sm text-dark-400 mb-1">Event Filter (optional)</label>
                         <select
                             value={eventId}
                             onChange={(e) => setEventId(e.target.value)}
                             className="w-full px-4 py-2.5 rounded-xl bg-dark-800/80 border border-dark-600/40 text-white text-sm focus:outline-none focus:border-accent-500/50"
                         >
-                            <option value="">All tournament-level markets</option>
+                            <option value="">All markets (tournament + all matches)</option>
                             {events?.map((ev) => (
                                 <option key={ev.id} value={ev.id}>{ev.title}</option>
                             ))}
