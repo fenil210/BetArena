@@ -519,4 +519,12 @@ npm run preview
 
 ---
 
+## Acknowledgments
+
+- [football-data.org](https://www.football-data.org/) - Football data and match information
+- [FastAPI](https://fastapi.tiangolo.com/) - High-performance Python web framework
+- [React](https://react.dev/) - JavaScript library for building user interfaces
+
+---
+
 This project is for educational purposes.
