@@ -95,9 +95,11 @@ export default function MyBetsPage() {
                                         <Coins className="w-3.5 h-3.5 text-gold-400" />
                                         <span className="text-sm font-semibold text-white">{bet.stake}</span>
                                     </div>
-                                    <div className="text-xs text-dark-400 mt-0.5">
-                                        @ {parseFloat(bet.odds || 0).toFixed(2)}
-                                    </div>
+                                    {bet.odds && (
+                                        <div className="text-xs text-dark-400 mt-0.5">
+                                            @ {parseFloat(bet.odds).toFixed(2)} → {bet.potential_payout}
+                                        </div>
+                                    )}
                                     {bet.status === 'won' && (
                                         <div className="text-sm font-bold text-accent-400 mt-1">
                                             +{bet.potential_payout}

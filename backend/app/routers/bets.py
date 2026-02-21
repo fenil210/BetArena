@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.dependencies import get_db, get_current_user, require_admin
 from app.models.user import User
 from app.models.bet import Bet
+from app.models.market import Selection
 from app.schemas.core import BetCreate, BetOut
 from app.services.betting import place_bet, BettingError
 
@@ -23,6 +24,13 @@ def create_bet(
         bet = place_bet(db, current_user, body.selection_id, body.stake)
     except BettingError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    # Re-query with relationships loaded for response
+    bet = (
+        db.query(Bet)
+        .options(selectinload(Bet.selection).selectinload(Selection.market))
+        .filter(Bet.id == bet.id)
+        .first()
+    )
     return bet
 
 
@@ -35,13 +43,18 @@ def get_my_bets(
     db: Session = Depends(get_db),
 ):
     """Get the current user's bets, optionally filtered by status."""
-    query = db.query(Bet).filter(Bet.user_id == current_user.id)
+    query = (
+        db.query(Bet)
+        .options(selectinload(Bet.selection).selectinload(Selection.market))
+        .filter(Bet.user_id == current_user.id)
+    )
     if status:
         query = query.filter(Bet.status == status)
     else:
         # By default hide replaced bets — user only sees their latest per market
         query = query.filter(Bet.status != "replaced")
     return query.order_by(Bet.placed_at.desc()).all()
+
 
 
 # ─────────────── Admin: View bets on a market ───────────────

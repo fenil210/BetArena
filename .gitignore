@@ -42,5 +42,6 @@ db.sqlite3
 *.sw?
 
 aws_setup.md
-docker_build.md
+docker-push.md
 football-data.md
+front-end-push.md

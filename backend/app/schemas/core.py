@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, date
 from decimal import Decimal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ───────────────────────── Football API sync ─────────────────────────
@@ -186,9 +186,34 @@ class BetOut(BaseModel):
     status: str
     placed_at: datetime
     settled_at: datetime | None = None
-    selection: SelectionOut | None = None
+    # Flattened from relationships for frontend convenience
+    selection_label: str | None = None
+    market_question: str | None = None
+    odds: float | None = None
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def flatten_selection(cls, data):
+        """Extract selection label, odds, and market question from ORM relationships."""
+        if hasattr(data, "selection") and data.selection is not None:
+            sel = data.selection
+            return {
+                "id": data.id,
+                "user_id": data.user_id,
+                "selection_id": data.selection_id,
+                "stake": data.stake,
+                "potential_payout": data.potential_payout,
+                "status": data.status,
+                "placed_at": data.placed_at,
+                "settled_at": data.settled_at,
+                "selection_label": sel.label,
+                "odds": float(sel.odds),
+                "market_question": sel.market.question if hasattr(sel, "market") and sel.market else None,
+            }
+        return data
+
 
 
 # ───────────────────────── Settlement ─────────────────────────
