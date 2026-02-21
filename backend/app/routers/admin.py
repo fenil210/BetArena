@@ -19,6 +19,7 @@ from app.services.football_api import (
     fetch_squad_for_team,
     fetch_matches_for_matchday,
     fetch_competition_standings,
+    fetch_competition_stages,
     FootballAPIError,
 )
 
@@ -270,25 +271,38 @@ def list_team_players(
     return team.players
 
 
-# ─────────────── Fetch matches for tournament + matchday ───────────────
+# ─────────────── Fetch matches for tournament ───────────────
 
 @router.get("/tournaments/{tournament_id}/matches")
-async def get_tournament_matches_by_matchday(
+async def get_tournament_matches(
     tournament_id: str,
-    matchday: int,
+    matchday: int | None = None,
+    stage: str | None = None,
+    group: str | None = None,
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """
-    Fetch matches from football-data.org for a tournament's competition
-    on a specific matchday. Returns live API data (not stored locally).
+    Fetch matches from football-data.org for a tournament's competition.
+    
+    Query params:
+    - matchday: For league competitions (e.g., 27 for Serie A, 8 for UCL league stage)
+    - stage: For cup competitions (e.g., 'GROUP_STAGE', 'LAST_16', 'QUARTER_FINALS')
+    - group: For World Cup group stage (e.g., 'GROUP_A', 'GROUP_B')
+    
+    Returns live API data (not stored locally).
     """
     tournament = db.query(Tournament).filter(Tournament.id == tournament_id).first()
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament not found")
 
     try:
-        matches = await fetch_matches_for_matchday(tournament.competition_id, matchday)
+        matches = await fetch_matches_for_matchday(
+            tournament.competition_id, 
+            matchday=matchday,
+            stage=stage,
+            group=group
+        )
     except FootballAPIError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
@@ -296,18 +310,21 @@ async def get_tournament_matches_by_matchday(
         "competition_id": tournament.competition_id,
         "tournament_id": tournament_id,
         "matchday": matchday,
+        "stage": stage,
+        "group": group,
         "matches": matches,
     }
 
 
-@router.get("/tournaments/{tournament_id}/current-matchday")
-async def get_tournament_current_matchday(
+@router.get("/tournaments/{tournament_id}/season-info")
+async def get_tournament_season_info(
     tournament_id: str,
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """
-    Get the current matchday for a tournament's competition from football-data.org.
+    Get season info for a tournament's competition from football-data.org.
+    Includes: current_matchday, season dates, and available stages.
     """
     tournament = db.query(Tournament).filter(Tournament.id == tournament_id).first()
     if not tournament:
@@ -315,10 +332,14 @@ async def get_tournament_current_matchday(
 
     try:
         standings = await fetch_competition_standings(tournament.competition_id)
+        stages = await fetch_competition_stages(tournament.competition_id)
     except FootballAPIError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
     if not standings:
         raise HTTPException(status_code=404, detail="Competition data not available")
 
-    return standings
+    return {
+        **standings,
+        "stages": stages,
+    }

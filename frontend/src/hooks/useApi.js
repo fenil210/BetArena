@@ -172,10 +172,19 @@ export function useMatchesByMatchday(tournamentId, matchday) {
     });
 }
 
-export function useCurrentMatchday(tournamentId) {
+export function useMatchesByStage(tournamentId, stage, group = null) {
+    const params = group ? `?stage=${stage}&group=${group}` : `?stage=${stage}`;
     return useQuery({
-        queryKey: ['admin', 'current-matchday', tournamentId],
-        queryFn: () => client.get(`/admin/tournaments/${tournamentId}/current-matchday`).then(r => r.data),
+        queryKey: ['admin', 'matches', tournamentId, 'stage', stage, group],
+        queryFn: () => client.get(`/admin/tournaments/${tournamentId}/matches${params}`).then(r => r.data),
+        enabled: !!tournamentId && !!stage,
+    });
+}
+
+export function useSeasonInfo(tournamentId) {
+    return useQuery({
+        queryKey: ['admin', 'season-info', tournamentId],
+        queryFn: () => client.get(`/admin/tournaments/${tournamentId}/season-info`).then(r => r.data),
         enabled: !!tournamentId,
     });
 }

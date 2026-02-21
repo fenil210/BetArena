@@ -6,11 +6,31 @@ import {
     useUpdateEventStatus,
     useDeleteEvent,
     useMatchesByMatchday,
-    useCurrentMatchday,
+    useMatchesByStage,
+    useSeasonInfo,
 } from '../../hooks/useApi';
-import { CalendarPlus, Plus, Loader2, Clock, Tv, CheckCircle, XCircle, Trash2, Search } from 'lucide-react';
+import { CalendarPlus, Plus, Loader2, Clock, Tv, CheckCircle, XCircle, Trash2, Search, Trophy } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatDateTime } from '../../utils/formatDate';
+
+// Stage labels for display
+const STAGE_LABELS = {
+    'REGULAR_SEASON': 'Regular Season',
+    'LEAGUE_STAGE': 'League Stage',
+    'GROUP_STAGE': 'Group Stage',
+    'LAST_16': 'Round of 16',
+    'QUARTER_FINALS': 'Quarter Finals',
+    'SEMI_FINALS': 'Semi Finals',
+    'FINAL': 'Final',
+    'THIRD_PLACE': 'Third Place Play-off',
+    'PLAYOFF_ROUND_1': 'Play-off Round 1',
+    'PLAYOFF_ROUND_2': 'Play-off Round 2',
+    'PLAYOFFS': 'Playoffs',
+    'QUALIFICATION': 'Qualification',
+    'QUALIFICATION_ROUND_1': 'Qualification Round 1',
+    'QUALIFICATION_ROUND_2': 'Qualification Round 2',
+    'QUALIFICATION_ROUND_3': 'Qualification Round 3',
+};
 
 export default function AdminEventsPage() {
     const { data: tournaments } = useTournaments();
@@ -97,16 +117,32 @@ function CreateEventForm({ tournaments, onCreated, onCancel }) {
     const [startsAt, setStartsAt] = useState('');
     const [matchId, setMatchId] = useState('');
 
-    // Matchday fetcher state
+    // Match fetcher state
     const [useApiSource, setUseApiSource] = useState(false);
+    const [fetchMode, setFetchMode] = useState('matchday'); // 'matchday' | 'stage'
     const [matchday, setMatchday] = useState('');
+    const [selectedStage, setSelectedStage] = useState('');
     const [showMatchSelector, setShowMatchSelector] = useState(false);
 
-    const { data: currentMatchdayData } = useCurrentMatchday(tournamentId);
-    const { data: matchesData, isLoading: matchesLoading, refetch: refetchMatches } = useMatchesByMatchday(
-        tournamentId,
-        parseInt(matchday, 10)
-    );
+    // Season info (includes stages)
+    const { data: seasonInfo } = useSeasonInfo(tournamentId);
+    
+    // Fetch matches by matchday
+    const { 
+        data: matchesByMatchday, 
+        isLoading: loadingMatchday, 
+        refetch: refetchMatchday 
+    } = useMatchesByMatchday(tournamentId, parseInt(matchday, 10));
+
+    // Fetch matches by stage
+    const { 
+        data: matchesByStage, 
+        isLoading: loadingStage, 
+        refetch: refetchStage 
+    } = useMatchesByStage(tournamentId, selectedStage);
+
+    const isLoading = fetchMode === 'matchday' ? loadingMatchday : loadingStage;
+    const matchesData = fetchMode === 'matchday' ? matchesByMatchday : matchesByStage;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -135,21 +171,41 @@ function CreateEventForm({ tournaments, onCreated, onCancel }) {
             toast.error('Please select a tournament first');
             return;
         }
-        if (!matchday || matchday < 1) {
-            toast.error('Please enter a valid matchday');
-            return;
+        if (fetchMode === 'matchday') {
+            if (!matchday || matchday < 1) {
+                toast.error('Please enter a valid matchday');
+                return;
+            }
+        } else {
+            if (!selectedStage) {
+                toast.error('Please select a stage');
+                return;
+            }
         }
         setShowMatchSelector(true);
-        refetchMatches();
+        if (fetchMode === 'matchday') {
+            refetchMatchday();
+        } else {
+            refetchStage();
+        }
     };
 
     const handleSelectMatch = (match) => {
         const homeName = match.home_team.short_name || match.home_team.name;
         const awayName = match.away_team.short_name || match.away_team.name;
         setTitle(`${homeName} vs ${awayName}`);
-        setDescription(`Matchday ${match.matchday}`);
+        
+        // Build description with stage info if available
+        let desc = '';
+        if (match.stage && match.stage !== 'REGULAR_SEASON' && match.stage !== 'LEAGUE_STAGE') {
+            desc = STAGE_LABELS[match.stage] || match.stage;
+        }
+        if (match.matchday) {
+            desc = desc ? `${desc} - Matchday ${match.matchday}` : `Matchday ${match.matchday}`;
+        }
+        setDescription(desc);
+        
         if (match.kickoff_at) {
-            // Convert UTC to local datetime-local format
             const date = new Date(match.kickoff_at);
             const localIso = new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
                 .toISOString().slice(0, 16);
@@ -161,10 +217,15 @@ function CreateEventForm({ tournaments, onCreated, onCancel }) {
     };
 
     const handleUseCurrentMatchday = () => {
-        if (currentMatchdayData?.current_matchday) {
-            setMatchday(currentMatchdayData.current_matchday.toString());
+        if (seasonInfo?.current_matchday) {
+            setMatchday(seasonInfo.current_matchday.toString());
         }
     };
+
+    // Get available stages for dropdown
+    const availableStages = seasonInfo?.stages || [];
+    const hasStages = availableStages.length > 0;
+    const hasMatchdays = seasonInfo?.current_matchday !== null && seasonInfo?.current_matchday !== undefined;
 
     return (
         <form onSubmit={handleSubmit} className="glass-card p-5 space-y-4 animate-fade-in">
@@ -178,6 +239,8 @@ function CreateEventForm({ tournaments, onCreated, onCancel }) {
                         onChange={(e) => {
                             setTournamentId(e.target.value);
                             setShowMatchSelector(false);
+                            setMatchday('');
+                            setSelectedStage('');
                         }}
                         className="w-full px-4 py-2.5 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50"
                         required
@@ -221,56 +284,125 @@ function CreateEventForm({ tournaments, onCreated, onCancel }) {
                 )}
             </div>
 
-            {/* Matchday Selector */}
+            {/* Match Fetcher Section */}
             {useApiSource && (
                 <div className="bg-dark-800/50 rounded-xl p-4 space-y-4 border border-dark-600/30">
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="flex-1">
-                            <label className="block text-sm text-dark-400 mb-1">Matchday</label>
-                            <div className="flex gap-2">
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max="50"
-                                    value={matchday}
-                                    onChange={(e) => setMatchday(e.target.value)}
-                                    placeholder="e.g. 27"
-                                    className="flex-1 px-4 py-2 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50"
-                                />
-                                {currentMatchdayData?.current_matchday && (
-                                    <button
-                                        type="button"
-                                        onClick={handleUseCurrentMatchday}
-                                        className="px-3 py-2 rounded-xl bg-dark-600/50 text-dark-300 text-sm hover:bg-dark-600 transition-colors"
-                                        title="Use current matchday"
-                                    >
-                                        Current ({currentMatchdayData.current_matchday})
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                        <div className="flex items-end">
+                    {/* Mode Toggle - show when tournament is selected */}
+                    {tournamentId && (
+                        <div className="flex gap-2">
                             <button
                                 type="button"
-                                onClick={handleFetchMatches}
-                                disabled={matchesLoading || !tournamentId}
-                                className="btn-primary flex items-center gap-2 disabled:opacity-50"
+                                onClick={() => { setFetchMode('matchday'); setShowMatchSelector(false); }}
+                                className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                                    fetchMode === 'matchday'
+                                        ? 'bg-accent-600 text-white'
+                                        : 'bg-dark-700 text-dark-400 hover:bg-dark-600'
+                                }`}
+                                disabled={!hasMatchdays}
                             >
-                                {matchesLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                                <Search className="w-4 h-4" />
-                                Fetch Matches
+                                By Matchday
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setFetchMode('stage'); setShowMatchSelector(false); }}
+                                className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                                    fetchMode === 'stage'
+                                        ? 'bg-accent-600 text-white'
+                                        : 'bg-dark-700 text-dark-400 hover:bg-dark-600'
+                                }`}
+                                disabled={!hasStages}
+                                title={hasStages ? 'Filter by knockout stage' : 'No stages available for this tournament'}
+                            >
+                                By Stage
                             </button>
                         </div>
-                    </div>
+                    )}
+
+                    {/* Matchday Input */}
+                    {fetchMode === 'matchday' && (
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="flex-1">
+                                <label className="block text-sm text-dark-400 mb-1">Matchday</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="50"
+                                        value={matchday}
+                                        onChange={(e) => setMatchday(e.target.value)}
+                                        placeholder="e.g. 27"
+                                        className="flex-1 px-4 py-2 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50"
+                                    />
+                                    {hasMatchdays && (
+                                        <button
+                                            type="button"
+                                            onClick={handleUseCurrentMatchday}
+                                            className="px-3 py-2 rounded-xl bg-dark-600/50 text-dark-300 text-sm hover:bg-dark-600 transition-colors"
+                                            title="Use current matchday"
+                                        >
+                                            Current ({seasonInfo.current_matchday})
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex items-end">
+                                <button
+                                    type="button"
+                                    onClick={handleFetchMatches}
+                                    disabled={isLoading || !tournamentId}
+                                    className="btn-primary flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    <Search className="w-4 h-4" />
+                                    Fetch Matches
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Stage Selector */}
+                    {fetchMode === 'stage' && (
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="flex-1">
+                                <label className="block text-sm text-dark-400 mb-1">Stage</label>
+                                <select
+                                    value={selectedStage}
+                                    onChange={(e) => setSelectedStage(e.target.value)}
+                                    className="w-full px-4 py-2 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50"
+                                >
+                                    <option value="">Select stage...</option>
+                                    {availableStages.map((stage) => (
+                                        <option key={stage} value={stage}>
+                                            {STAGE_LABELS[stage] || stage}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="flex items-end">
+                                <button
+                                    type="button"
+                                    onClick={handleFetchMatches}
+                                    disabled={isLoading || !tournamentId || !selectedStage}
+                                    className="btn-primary flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    <Trophy className="w-4 h-4" />
+                                    Fetch Matches
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Match Selector */}
                     {showMatchSelector && matchesData && (
                         <div className="space-y-2 animate-fade-in">
                             <p className="text-sm text-dark-400">
-                                Showing {matchesData.matches?.length || 0} matches for Matchday {matchesData.matchday}
+                                Showing {matchesData.matches?.length || 0} matches
+                                {fetchMode === 'matchday' && matchesData.matchday && ` for Matchday ${matchesData.matchday}`}
+                                {fetchMode === 'stage' && matchesData.stage && ` for ${STAGE_LABELS[matchesData.stage] || matchesData.stage}`}
                             </p>
                             {matchesData.matches?.length === 0 ? (
-                                <p className="text-dark-500 text-sm">No matches found for this matchday.</p>
+                                <p className="text-dark-500 text-sm">No matches found.</p>
                             ) : (
                                 <div className="grid grid-cols-1 gap-2 max-h-80 overflow-y-auto">
                                     {matchesData.matches.map((match) => (
@@ -343,6 +475,8 @@ function MatchCard({ match, onSelect }) {
         CANCELLED: 'Cancelled',
     };
 
+    const stageLabel = match.stage && STAGE_LABELS[match.stage] ? STAGE_LABELS[match.stage] : match.stage;
+
     return (
         <button
             type="button"
@@ -376,11 +510,14 @@ function MatchCard({ match, onSelect }) {
                     </div>
                 </div>
 
-                {/* Status & Date */}
+                {/* Status & Stage */}
                 <div className="text-right shrink-0">
                     <span className={`text-xs font-medium ${statusColors[match.status] || 'text-dark-400'}`}>
                         {statusLabels[match.status] || match.status}
                     </span>
+                    {stageLabel && stageLabel !== 'Regular Season' && stageLabel !== 'League Stage' && (
+                        <p className="text-xs text-accent-400">{stageLabel}</p>
+                    )}
                     {match.kickoff_at && (
                         <p className="text-xs text-dark-500">
                             {formatDateTime(match.kickoff_at)}

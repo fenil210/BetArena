@@ -125,13 +125,37 @@ async def fetch_squad_for_team(team_id: int) -> list[dict]:
     return result
 
 
-async def fetch_matches_for_matchday(competition_id: int, matchday: int) -> list[dict]:
+async def fetch_matches_for_matchday(
+    competition_id: int, 
+    matchday: int | None = None,
+    stage: str | None = None,
+    group: str | None = None
+) -> list[dict]:
     """
-    Fetch all matches for a specific competition and matchday.
+    Fetch all matches for a specific competition with optional filters.
+    
+    For league competitions: use matchday (e.g., 27 for Serie A)
+    For cup competitions: use stage (e.g., 'GROUP_STAGE', 'LAST_16', 'QUARTER_FINALS')
+    For World Cup groups: use stage='GROUP_STAGE' + group (e.g., 'GROUP_A')
+    
     Returns a list of dicts with keys: id, home_team, away_team, kickoff_at, 
-    status, matchday, stage.
+    status, matchday, stage, group.
     """
-    data = await _get(f"/competitions/{competition_id}/matches?matchday={matchday}")
+    # Build query parameters
+    params = []
+    if matchday is not None:
+        params.append(f"matchday={matchday}")
+    if stage:
+        params.append(f"stage={stage}")
+    if group:
+        params.append(f"group={group}")
+    
+    query_string = "&".join(params) if params else ""
+    url = f"/competitions/{competition_id}/matches"
+    if query_string:
+        url += f"?{query_string}"
+    
+    data = await _get(url)
     result = []
     for match in data.get("matches", []):
         home_team = match.get("homeTeam", {})
@@ -154,8 +178,22 @@ async def fetch_matches_for_matchday(competition_id: int, matchday: int) -> list
             "status": match.get("status"),
             "matchday": match.get("matchday"),
             "stage": match.get("stage"),
+            "group": match.get("group"),
         })
     return result
+
+
+async def fetch_competition_stages(competition_id: int) -> list[str]:
+    """
+    Fetch available stages for a competition from current season.
+    Returns list of stage names like ['GROUP_STAGE', 'LAST_16', etc.]
+    """
+    try:
+        data = await _get(f"/competitions/{competition_id}")
+        current_season = data.get("currentSeason", {})
+        return current_season.get("stages", [])
+    except FootballAPIError:
+        return []
 
 
 async def fetch_competition_standings(competition_id: int) -> dict | None:
