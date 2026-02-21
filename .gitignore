@@ -40,3 +40,7 @@ db.sqlite3
 *.njsproj
 *.sln
 *.sw?
+
+aws_setup.md
+docker_build.md
+football-data.md
