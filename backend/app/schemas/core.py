@@ -197,9 +197,10 @@ class BetOut(BaseModel):
     @classmethod
     def flatten_selection(cls, data):
         """Extract selection label, odds, and market question from ORM relationships."""
-        if hasattr(data, "selection") and data.selection is not None:
+        # Handle SQLAlchemy ORM objects - convert to dict with flattened fields
+        if hasattr(data, "__dict__") and hasattr(data, "selection"):
             sel = data.selection
-            return {
+            result = {
                 "id": data.id,
                 "user_id": data.user_id,
                 "selection_id": data.selection_id,
@@ -208,10 +209,11 @@ class BetOut(BaseModel):
                 "status": data.status,
                 "placed_at": data.placed_at,
                 "settled_at": data.settled_at,
-                "selection_label": sel.label,
-                "odds": float(sel.odds),
-                "market_question": sel.market.question if hasattr(sel, "market") and sel.market else None,
+                "selection_label": sel.label if sel else None,
+                "odds": float(sel.odds) if sel else None,
+                "market_question": sel.market.question if sel and hasattr(sel, "market") and sel.market else None,
             }
+            return result
         return data
 
 

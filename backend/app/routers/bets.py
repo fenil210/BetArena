@@ -76,6 +76,7 @@ def get_market_bets(
         return []
     return (
         db.query(Bet)
+        .options(selectinload(Bet.selection).selectinload(Selection.market))
         .filter(Bet.selection_id.in_(selection_ids))
         .order_by(Bet.placed_at.desc())
         .all()
