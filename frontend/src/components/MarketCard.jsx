@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Target, Lock, CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, XCircle, TrendingUp } from 'lucide-react';
+import { useMarketTrends } from '../hooks/useApi';
 import BetSlip from './BetSlip';
 
 export default function MarketCard({ market }) {
     const [selectedSelection, setSelectedSelection] = useState(null);
+    const { data: trendsData } = useMarketTrends(market.id);
 
     const statusConfig = {
         coming_soon: { badge: 'badge-coming-soon', label: 'Coming Soon', canBet: false },
@@ -14,6 +16,21 @@ export default function MarketCard({ market }) {
     };
 
     const config = statusConfig[market.status] || statusConfig.coming_soon;
+
+    // Build a map of selection_id -> trend data
+    const trendMap = {};
+    if (trendsData?.trends) {
+        trendsData.trends.forEach(t => {
+            trendMap[t.selection_id] = t;
+        });
+    }
+
+    const hasTrends = trendsData && trendsData.total_bets > 0;
+
+    const handleSelectionClick = (sel) => {
+        if (!config.canBet) return;
+        setSelectedSelection(selectedSelection?.id === sel.id ? null : sel);
+    };
 
     return (
         <>
@@ -31,7 +48,7 @@ export default function MarketCard({ market }) {
                     <span className={`badge ${config.badge} shrink-0`}>{config.label}</span>
                 </div>
 
-                {/* Selections / Odds */}
+                {/* Selections / Odds with Trends */}
                 <div className={`grid gap-2 ${market.selections?.length === 2 ? 'grid-cols-2' :
                         market.selections?.length === 3 ? 'grid-cols-3' :
                             'grid-cols-2 sm:grid-cols-3'
@@ -39,16 +56,13 @@ export default function MarketCard({ market }) {
                     {market.selections?.map((sel) => {
                         const isWinner = sel.is_winner === true;
                         const isLoser = market.status === 'settled' && !sel.is_winner;
+                        const trend = trendMap[sel.id];
+                        const showTrend = hasTrends && trend && market.status === 'open';
 
                         return (
                             <button
                                 key={sel.id}
-                                onClick={() => {
-                                    if (!config.canBet) return;
-                                    setSelectedSelection(
-                                        selectedSelection?.id === sel.id ? null : sel
-                                    );
-                                }}
+                                onClick={() => handleSelectionClick(sel)}
                                 disabled={!config.canBet}
                                 className={`odds-btn relative ${selectedSelection?.id === sel.id ? 'selected' : ''
                                     } ${!config.canBet ? 'opacity-60 cursor-not-allowed' : ''} ${isWinner ? '!border-accent-500 !bg-accent-500/15' : ''
@@ -63,6 +77,32 @@ export default function MarketCard({ market }) {
                                     }`}>
                                     {parseFloat(sel.odds).toFixed(2)}
                                 </div>
+                                
+                                {/* Betting Trend Bar */}
+                                {showTrend && (
+                                    <div className="mt-2 pt-2 border-t border-dark-600/30">
+                                        <div className="flex items-center justify-between text-xs mb-1">
+                                            <span className="text-dark-500 flex items-center gap-1">
+                                                <TrendingUp className="w-3 h-3" />
+                                                {trend.percentage}%
+                                            </span>
+                                            <span className="text-dark-500">{trend.bet_count}</span>
+                                        </div>
+                                        <div className="h-1 bg-dark-700 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full bg-accent-500 rounded-full transition-all duration-500"
+                                                style={{ width: `${trend.percentage}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {/* No bets yet */}
+                                {!hasTrends && market.status === 'open' && (
+                                    <div className="mt-2 pt-2 border-t border-dark-600/30 text-xs text-dark-500">
+                                        Be first!
+                                    </div>
+                                )}
                             </button>
                         );
                     })}
@@ -79,6 +119,14 @@ export default function MarketCard({ market }) {
                     <div className="flex items-center gap-2 text-xs text-loss-400">
                         <XCircle className="w-4 h-4" />
                         Market voided — all stakes refunded
+                    </div>
+                )}
+                
+                {/* Total bets indicator */}
+                {hasTrends && market.status === 'open' && (
+                    <div className="flex items-center gap-2 text-xs text-dark-400">
+                        <TrendingUp className="w-4 h-4" />
+                        {trendsData.total_bets} total bets
                     </div>
                 )}
             </div>

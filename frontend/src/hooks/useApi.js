@@ -67,6 +67,15 @@ export function useMarket(id) {
     });
 }
 
+export function useMarketTrends(marketId) {
+    return useQuery({
+        queryKey: ['market', marketId, 'trends'],
+        queryFn: () => client.get(`/markets/${marketId}/trends`).then(r => r.data),
+        enabled: !!marketId,
+        refetchInterval: 30000, // Refresh every 30 seconds
+    });
+}
+
 // ─── Bets ─────────────────────────
 export function useMyBets(status) {
     const params = status ? `?status=${status}` : '';
@@ -202,6 +211,21 @@ export function useUsers() {
     return useQuery({
         queryKey: ['admin', 'users'],
         queryFn: () => client.get('/admin/users').then(r => r.data),
+    });
+}
+
+export function useUserStats() {
+    return useQuery({
+        queryKey: ['user', 'stats'],
+        queryFn: () => client.get('/users/me/stats').then(r => r.data),
+    });
+}
+
+export function useUserStreak() {
+    return useQuery({
+        queryKey: ['user', 'streak'],
+        queryFn: () => client.get('/users/me/streak').then(r => r.data),
+        refetchInterval: 60000, // Refresh every minute
     });
 }
 

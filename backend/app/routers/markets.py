@@ -234,3 +234,68 @@ def list_all_tournament_markets(
         .order_by(Market.created_at.desc())
         .all()
     )
+
+
+# ─────────────── Public: Get betting trends for a market ───────────────
+
+@router.get("/markets/{market_id}/trends")
+def get_market_trends(
+    market_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get betting trends for a market - shows percentage of bets on each selection.
+    Returns: { selection_id, label, percentage, bet_count, total_bets }
+    """
+    market = db.query(Market).filter(Market.id == market_id).first()
+    if not market:
+        raise HTTPException(status_code=404, detail="Market not found")
+    
+    # Count total bets on this market (via selections)
+    from app.models.bet import Bet
+    
+    total_bets = (
+        db.query(Bet)
+        .join(Selection)
+        .filter(Selection.market_id == market_id)
+        .count()
+    )
+    
+    if total_bets == 0:
+        # No bets yet - return 0% for all
+        return {
+            "market_id": market_id,
+            "total_bets": 0,
+            "trends": [
+                {
+                    "selection_id": str(sel.id),
+                    "label": sel.label,
+                    "percentage": 0,
+                    "bet_count": 0,
+                }
+                for sel in market.selections
+            ],
+        }
+    
+    # Count bets per selection
+    trends = []
+    for sel in market.selections:
+        bet_count = (
+            db.query(Bet)
+            .filter(Bet.selection_id == sel.id)
+            .count()
+        )
+        percentage = round((bet_count / total_bets) * 100, 1)
+        trends.append({
+            "selection_id": str(sel.id),
+            "label": sel.label,
+            "percentage": percentage,
+            "bet_count": bet_count,
+        })
+    
+    return {
+        "market_id": market_id,
+        "total_bets": total_bets,
+        "trends": trends,
+    }
