@@ -1,13 +1,27 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTournament, useTournamentEvents, useTournamentMarkets } from '../hooks/useApi';
 import MarketCard from '../components/MarketCard';
-import { Trophy, Calendar, ArrowRight, MapPin } from 'lucide-react';
+import { Trophy, Calendar, ArrowRight, Filter } from 'lucide-react';
 import { formatDateTime } from '../utils/formatDate';
+
+const STATUS_OPTIONS = [
+    { value: '', label: 'Active Matches (Upcoming + Live)' },
+    { value: 'all', label: 'All Matches' },
+    { value: 'upcoming', label: 'Upcoming' },
+    { value: 'live', label: 'Live' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'cancelled', label: 'Cancelled' },
+];
 
 export default function TournamentDetailPage() {
     const { id } = useParams();
+    const [statusFilter, setStatusFilter] = useState(''); // Default: active (upcoming + live)
+    
     const { data: tournament, isLoading: loadingT } = useTournament(id);
-    const { data: events, isLoading: loadingE } = useTournamentEvents(id);
+    // statusFilter 'all' means no filter (show all), empty string means default (upcoming+live)
+    const eventsQueryStatus = statusFilter === 'all' ? null : statusFilter;
+    const { data: events, isLoading: loadingE } = useTournamentEvents(id, eventsQueryStatus);
     const { data: markets, isLoading: loadingM } = useTournamentMarkets(id);
 
     if (loadingT) {
@@ -66,10 +80,28 @@ export default function TournamentDetailPage() {
 
             {/* Events / Matches */}
             <div className="space-y-4">
-                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-accent-400" />
-                    Matches & Events
-                </h2>
+                {/* Section Header with Filter */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-accent-400" />
+                        Matches & Events
+                    </h2>
+                    
+                    {/* Status Filter */}
+                    <div className="flex items-center gap-2">
+                        <Filter className="w-4 h-4 text-dark-400" />
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="px-3 py-1.5 rounded-lg bg-dark-800 border border-dark-600 text-white text-sm focus:outline-none focus:border-accent-500/50"
+                        >
+                            {STATUS_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
                 {loadingE ? (
                     <div className="space-y-3">
                         {Array.from({ length: 3 }).map((_, i) => (
@@ -81,7 +113,22 @@ export default function TournamentDetailPage() {
                     </div>
                 ) : events?.length === 0 ? (
                     <div className="glass-card p-8 text-center">
-                        <p className="text-dark-400">No events created yet for this tournament.</p>
+                        <p className="text-dark-400">
+                            {statusFilter === '' 
+                                ? 'No active matches (upcoming or live) for this tournament.' 
+                                : statusFilter === 'all'
+                                    ? 'No events created yet for this tournament.'
+                                    : `No ${statusFilter} matches found.`
+                            }
+                        </p>
+                        {statusFilter === '' && (
+                            <button 
+                                onClick={() => setStatusFilter('all')}
+                                className="mt-3 text-sm text-accent-400 hover:underline"
+                            >
+                                View all matches
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <div className="space-y-3">

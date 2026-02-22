@@ -18,10 +18,11 @@ export function useTournament(id) {
 }
 
 // ─── Events ─────────────────────────
-export function useTournamentEvents(tournamentId) {
+export function useTournamentEvents(tournamentId, status = null) {
+    const params = status ? `?status=${status}` : '';
     return useQuery({
-        queryKey: ['events', tournamentId],
-        queryFn: () => client.get(`/tournaments/${tournamentId}/events`).then(r => r.data),
+        queryKey: ['events', tournamentId, status],
+        queryFn: () => client.get(`/tournaments/${tournamentId}/events${params}`).then(r => r.data),
         enabled: !!tournamentId,
     });
 }

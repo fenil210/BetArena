@@ -106,16 +106,30 @@ def delete_event(
 @router.get("/tournaments/{tournament_id}/events", response_model=list[EventOut])
 def list_events(
     tournament_id: str,
+    status: str | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List all events for a tournament, ordered by start time."""
-    return (
-        db.query(Event)
-        .filter(Event.tournament_id == tournament_id)
-        .order_by(Event.starts_at.asc().nullslast())
-        .all()
-    )
+    """
+    List all events for a tournament.
+    
+    Query params:
+    - status: Filter by status (upcoming, live, completed, cancelled)
+              If not provided, defaults to showing upcoming + live only
+    
+    Ordered by creation date (newest first) so recently added matches appear first.
+    """
+    query = db.query(Event).filter(Event.tournament_id == tournament_id)
+    
+    # Default filter: only show upcoming and live (hide completed/cancelled)
+    if status:
+        query = query.filter(Event.status == status)
+    else:
+        # Default: show only upcoming and live events
+        query = query.filter(Event.status.in_(["upcoming", "live"]))
+    
+    # Order by creation date (newest first) - recently added matches first
+    return query.order_by(Event.created_at.desc()).all()
 
 
 # ─────────────── Public: Get event detail ───────────────
