@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.dependencies import get_db, get_current_user
 from app.models.user import User
 from app.models.activity import ActivityFeed, Notification
-from app.schemas.core import ActivityOut
+from app.schemas.core import ActivityOut, NotificationOut
 
 router = APIRouter(tags=["Feed & Notifications"])
 
@@ -45,7 +45,7 @@ def get_feed(
 
 # ─────────────── Notifications ───────────────
 
-@router.get("/notifications")
+@router.get("/notifications", response_model=list[NotificationOut])
 def get_notifications(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -58,6 +58,23 @@ def get_notifications(
         .limit(50)
         .all()
     )
+
+
+@router.get("/notifications/unread-count")
+def get_unread_count(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get count of unread notifications."""
+    count = (
+        db.query(Notification)
+        .filter(
+            Notification.user_id == current_user.id,
+            Notification.is_read == False
+        )
+        .count()
+    )
+    return {"unread_count": count}
 
 
 @router.post("/notifications/{notification_id}/read")
@@ -80,3 +97,17 @@ def mark_notification_read(
     notif.is_read = True
     db.commit()
     return {"message": "Marked as read"}
+
+
+@router.post("/notifications/read-all")
+def mark_all_notifications_read(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Mark all notifications as read."""
+    db.query(Notification).filter(
+        Notification.user_id == current_user.id,
+        Notification.is_read == False
+    ).update({"is_read": True})
+    db.commit()
+    return {"message": "All notifications marked as read"}

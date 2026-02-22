@@ -133,6 +133,38 @@ export function useNotifications() {
     });
 }
 
+export function useUnreadNotificationCount() {
+    return useQuery({
+        queryKey: ['notifications', 'unread-count'],
+        queryFn: () => client.get('/notifications/unread-count').then(r => r.data.unread_count),
+        refetchInterval: 30000,
+    });
+}
+
+export function useMarkNotificationRead() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (notificationId) => 
+            client.post(`/notifications/${notificationId}/read`).then(r => r.data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['notifications'] });
+            qc.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
+        },
+    });
+}
+
+export function useMarkAllNotificationsRead() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: () => 
+            client.post('/notifications/read-all').then(r => r.data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['notifications'] });
+            qc.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
+        },
+    });
+}
+
 // ─── Admin: Sync ─────────────────────────
 export function useSyncCompetitions() {
     return useMutation({

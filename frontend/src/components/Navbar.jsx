@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useUnreadNotificationCount } from '../hooks/useApi';
 import {
     Trophy,
     Coins,
@@ -15,6 +16,7 @@ export default function Navbar() {
     const { user, logout } = useAuth();
     const location = useLocation();
     const [menuOpen, setMenuOpen] = useState(false);
+    const { data: unreadCount } = useUnreadNotificationCount();
 
     if (!user) return null;
 
@@ -62,6 +64,11 @@ export default function Navbar() {
                             className="p-2 rounded-xl hover:bg-dark-700/60 transition-colors relative"
                         >
                             <Bell className="w-5 h-5 text-dark-300" />
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-accent-500 text-white text-xs font-bold flex items-center justify-center">
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                            )}
                         </Link>
 
                         {/* Profile + Logout (desktop) */}
@@ -104,6 +111,7 @@ export default function Navbar() {
                         <MobileLink to="/bets" label="My Bets" onClick={() => setMenuOpen(false)} />
                         <MobileLink to="/leaderboard" label="Leaderboard" onClick={() => setMenuOpen(false)} />
                         <MobileLink to="/feed" label="Feed" onClick={() => setMenuOpen(false)} />
+                        <MobileLink to="/notifications" label="Notifications" onClick={() => setMenuOpen(false)} />
                         <MobileLink to="/profile" label="Profile" onClick={() => setMenuOpen(false)} />
                         {user.is_admin && (
                             <MobileLink to="/admin" label="Admin Panel" onClick={() => setMenuOpen(false)} admin />

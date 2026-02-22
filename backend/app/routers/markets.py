@@ -57,12 +57,51 @@ def create_market(
             player_id=sel.player_id,
         ))
 
-    # Activity feed
+    # Get event/tournament info for better messaging
+    event_title = None
+    tournament_name = None
+    if body.event_id:
+        from app.models.event import Event
+        event = db.query(Event).filter(Event.id == body.event_id).first()
+        if event:
+            event_title = event.title
+    if body.tournament_id:
+        from app.models.tournament import Tournament
+        tournament = db.query(Tournament).filter(Tournament.id == body.tournament_id).first()
+        if tournament:
+            tournament_name = tournament.name
+
+    # Build context string (e.g., "Barça vs Levante" or "Premier League")
+    context = event_title or tournament_name or "Unknown"
+    
+    # Activity feed with event name
     db.add(ActivityFeed(
         action_type="market_opened" if body.status == "open" else "market_created",
-        description=f"New market: \"{body.question}\" ({body.market_type})",
-        metadata_json={"market_id": str(market.id), "market_type": body.market_type},
+        description=f"New market for {context}: \"{body.question}\"",
+        metadata_json={
+            "market_id": str(market.id), 
+            "market_type": body.market_type,
+            "event_title": event_title,
+            "tournament_name": tournament_name,
+            "event_id": str(body.event_id) if body.event_id else None,
+        },
     ))
+
+    # Create notifications for ALL users about new market
+    if body.status == "open":
+        from app.models.user import User
+        from app.models.activity import Notification
+        
+        users = db.query(User).filter(User.is_active == True).all()
+        for user in users:
+            link_path = f"/events/{body.event_id}" if body.event_id else f"/tournaments/{body.tournament_id}"
+            db.add(Notification(
+                user_id=user.id,
+                type="new_market",
+                title="New Betting Market",
+                message=f"New market added for {context}: {body.question}",
+                link=link_path,
+            ))
 
     db.commit()
     db.refresh(market)

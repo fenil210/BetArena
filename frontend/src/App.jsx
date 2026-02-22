@@ -16,6 +16,7 @@ import MyBetsPage from './pages/MyBetsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import FeedPage from './pages/FeedPage';
 import ProfilePage from './pages/ProfilePage';
+import NotificationsPage from './pages/NotificationsPage';
 
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminTournamentsPage from './pages/admin/AdminTournamentsPage';
@@ -52,6 +53,7 @@ export default function App() {
               <Route path="/bets" element={<MyBetsPage />} />
               <Route path="/leaderboard" element={<LeaderboardPage />} />
               <Route path="/feed" element={<FeedPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
             </Route>
 
