@@ -65,7 +65,7 @@ function CreateUserForm({ onCreated, onCancel }) {
         }
         setLoading(true);
         try {
-            await client.post('/users', { username, email, password, is_admin: false });
+            await client.post('/auth/users', { username, email, password, is_admin: false });
             toast.success(`User "${username}" created!`);
             onCreated();
         } catch (err) {
