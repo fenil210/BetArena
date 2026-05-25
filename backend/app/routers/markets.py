@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -13,8 +15,18 @@ from app.schemas.core import (
     SettleMarketRequest,
 )
 from app.services.betting import settle_market, void_market, BettingError
+from app.services.betting import lock_expired_markets, market_is_closed_by_time
 
 router = APIRouter(tags=["Markets"])
+
+
+def event_has_started(event) -> bool:
+    if not event or not event.starts_at:
+        return False
+    starts_at = event.starts_at
+    if starts_at.tzinfo is None:
+        starts_at = starts_at.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) >= starts_at.astimezone(timezone.utc)
 
 
 # ─────────────── Admin: Create market ───────────────
@@ -39,6 +51,18 @@ def create_market(
             detail="Market must be linked to an event, a tournament, or both.",
         )
 
+    event = None
+    if body.event_id:
+        from app.models.event import Event
+        event = db.query(Event).filter(Event.id == body.event_id).first()
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        if event_has_started(event):
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot create a market after kickoff. Betting closes at the match start time.",
+            )
+
     market = Market(
         event_id=body.event_id,
         tournament_id=body.tournament_id,
@@ -60,11 +84,8 @@ def create_market(
     # Get event/tournament info for better messaging
     event_title = None
     tournament_name = None
-    if body.event_id:
-        from app.models.event import Event
-        event = db.query(Event).filter(Event.id == body.event_id).first()
-        if event:
-            event_title = event.title
+    if event:
+        event_title = event.title
     if body.tournament_id:
         from app.models.tournament import Tournament
         tournament = db.query(Tournament).filter(Tournament.id == body.tournament_id).first()
@@ -92,7 +113,7 @@ def create_market(
         from app.models.user import User
         from app.models.activity import Notification
         
-        users = db.query(User).filter(User.is_active == True).all()
+        users = db.query(User).filter(User.is_active == True, User.is_admin == False).all()
         for user in users:
             link_path = f"/events/{body.event_id}" if body.event_id else f"/tournaments/{body.tournament_id}"
             db.add(Notification(
@@ -121,6 +142,14 @@ def update_market_status(
     market = db.query(Market).filter(Market.id == market_id).first()
     if not market:
         raise HTTPException(status_code=404, detail="Market not found")
+
+    if body.status == "open" and market_is_closed_by_time(market):
+        market.status = "locked"
+        db.commit()
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot open this market after kickoff. Betting is closed.",
+        )
 
     # Validate transitions
     valid_transitions = {
@@ -209,6 +238,7 @@ def list_event_markets(
     db: Session = Depends(get_db),
 ):
     """List all markets for a specific event."""
+    lock_expired_markets(db)
     return (
         db.query(Market)
         .filter(Market.event_id == event_id)
@@ -226,6 +256,7 @@ def list_tournament_markets(
     db: Session = Depends(get_db),
 ):
     """List tournament-level markets (winner, golden boot, etc.)."""
+    lock_expired_markets(db)
     return (
         db.query(Market)
         .filter(
@@ -249,6 +280,10 @@ def get_market(
     market = db.query(Market).filter(Market.id == market_id).first()
     if not market:
         raise HTTPException(status_code=404, detail="Market not found")
+    if market_is_closed_by_time(market) and market.status == "open":
+        market.status = "locked"
+        db.commit()
+        db.refresh(market)
     return market
 
 
@@ -267,6 +302,7 @@ def list_all_tournament_markets(
     
     Sorted by creation date (newest first).
     """
+    lock_expired_markets(db)
     return (
         db.query(Market)
         .filter(Market.tournament_id == tournament_id)

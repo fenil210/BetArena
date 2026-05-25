@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -7,7 +9,9 @@ from app.models.event import Event
 from app.models.market import Market, Selection
 from app.models.bet import Bet
 from app.models.tournament import Tournament
+from app.models.football_data import Match
 from app.schemas.core import EventCreate, EventUpdate, EventOut
+from app.services.world_cup import provider_status_to_event_status
 
 router = APIRouter(tags=["Events"])
 
@@ -30,12 +34,36 @@ def create_event(
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament not found")
 
+    starts_at = body.starts_at
+    title = body.title
+    description = body.description
+    status_value = "upcoming"
+
+    if body.match_id:
+        match = db.query(Match).filter(Match.id == body.match_id).first()
+        if not match:
+            raise HTTPException(status_code=404, detail="Linked match not found. Sync fixtures first.")
+        starts_at = starts_at or match.kickoff_at
+        home = match.home_team.short_name or match.home_team.name
+        away = match.away_team.short_name or match.away_team.name
+        title = title or f"{home} vs {away}"
+        description = description or " - ".join(
+            part for part in [match.group_name, f"Matchday {match.matchday}" if match.matchday else None, match.venue] if part
+        )
+        status_value = provider_status_to_event_status(match.status)
+
+    if starts_at:
+        kickoff = starts_at if starts_at.tzinfo else starts_at.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) >= kickoff.astimezone(timezone.utc):
+            raise HTTPException(status_code=400, detail="Cannot create a match event after kickoff")
+
     event = Event(
         tournament_id=body.tournament_id,
         match_id=body.match_id,
-        title=body.title,
-        description=body.description,
-        starts_at=body.starts_at,
+        title=title,
+        description=description,
+        starts_at=starts_at,
+        status=status_value,
     )
     db.add(event)
     db.commit()
@@ -115,6 +143,7 @@ def list_events(
     
     Query params:
     - status: Filter by status (upcoming, live, completed, cancelled)
+              Use status=all for every event.
               If not provided, defaults to showing upcoming + live only
     
     Ordered by creation date (newest first) so recently added matches appear first.
@@ -122,14 +151,13 @@ def list_events(
     query = db.query(Event).filter(Event.tournament_id == tournament_id)
     
     # Default filter: only show upcoming and live (hide completed/cancelled)
-    if status:
+    if status and status != "all":
         query = query.filter(Event.status == status)
-    else:
+    elif status != "all":
         # Default: show only upcoming and live events
         query = query.filter(Event.status.in_(["upcoming", "live"]))
     
-    # Order by creation date (newest first) - recently added matches first
-    return query.order_by(Event.created_at.desc()).all()
+    return query.order_by(Event.starts_at.asc().nullslast(), Event.created_at.asc()).all()
 
 
 # ─────────────── Public: Get event detail ───────────────

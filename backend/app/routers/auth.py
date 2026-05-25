@@ -127,7 +127,7 @@ def create_user(
         username=body.username,
         email=body.email,
         password_hash=_hash_password(body.password),
-        balance=settings.DEFAULT_BALANCE,
+        balance=0 if body.is_admin else settings.DEFAULT_BALANCE,
         is_admin=body.is_admin,
     )
     db.add(user)

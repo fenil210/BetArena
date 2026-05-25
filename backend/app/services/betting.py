@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.models.user import User
 from app.models.market import Market, Selection
+from app.models.event import Event
 from app.models.bet import Bet
 from app.models.activity import ActivityFeed
 
@@ -20,6 +21,46 @@ logger = logging.getLogger(__name__)
 class BettingError(Exception):
     """Raised when a betting operation fails a business rule."""
     pass
+
+
+def _utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def market_close_time(market: Market) -> datetime | None:
+    if market.event and market.event.starts_at:
+        return _utc(market.event.starts_at)
+    return None
+
+
+def market_is_closed_by_time(market: Market, now: datetime | None = None) -> bool:
+    close_time = market_close_time(market)
+    if not close_time:
+        return False
+    return (now or datetime.now(timezone.utc)) >= close_time
+
+
+def lock_expired_markets(db: Session) -> int:
+    """Lock open event markets whose kickoff time has passed."""
+    now = datetime.now(timezone.utc)
+    expired = (
+        db.query(Market)
+        .join(Event, Market.event_id == Event.id)
+        .filter(Market.status == "open", Event.starts_at.isnot(None))
+        .all()
+    )
+    locked = 0
+    for market in expired:
+        if market_is_closed_by_time(market, now):
+            market.status = "locked"
+            locked += 1
+    if locked:
+        db.commit()
+    return locked
 
 
 def place_bet(db: Session, user: User, selection_id, stake: int) -> Bet:
@@ -34,6 +75,10 @@ def place_bet(db: Session, user: User, selection_id, stake: int) -> Bet:
     """
     if stake <= 0:
         raise BettingError("Stake must be a positive number")
+    if user.is_admin:
+        raise BettingError("Admin accounts cannot place bets")
+
+    lock_expired_markets(db)
 
     # Load selection with market
     selection = db.query(Selection).filter(Selection.id == selection_id).first()
@@ -46,6 +91,10 @@ def place_bet(db: Session, user: User, selection_id, stake: int) -> Bet:
 
     if market.status != "open":
         raise BettingError(f"Market is not open for betting (status: {market.status})")
+    if market_is_closed_by_time(market):
+        market.status = "locked"
+        db.commit()
+        raise BettingError("Betting is closed for this match. Kickoff time has passed.")
 
     # Refresh user to get latest balance (for-update lock in real PostgreSQL)
     db.refresh(user)

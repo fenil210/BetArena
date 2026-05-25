@@ -13,7 +13,10 @@ from app.models.football_data import Competition, Team, Player, Match, competiti
 from app.models.tournament import Tournament
 from app.schemas.core import SyncSummary, CompetitionOut, TeamOut, PlayerOut
 from app.services.football_api import (
+    WORLD_CUP_COMPETITION_ID,
+    WORLD_CUP_SEASON,
     fetch_competitions,
+    fetch_world_cup_competition,
     fetch_teams_for_competition,
     fetch_fixtures_for_competition,
     fetch_squad_for_team,
@@ -22,6 +25,7 @@ from app.services.football_api import (
     fetch_competition_stages,
     FootballAPIError,
 )
+from app.services.world_cup import GROUP_STAGE, bootstrap_world_cup
 
 router = APIRouter(prefix="/admin", tags=["Admin Sync"])
 
@@ -35,9 +39,9 @@ async def sync_competitions(
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Fetch all competitions from football-data.org and upsert locally."""
+    """Fetch FIFA World Cup metadata from football-data.org and upsert locally."""
     try:
-        api_data = await fetch_competitions()
+        api_data = [await fetch_world_cup_competition()]
     except FootballAPIError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
@@ -70,6 +74,19 @@ async def sync_competitions(
     return summary
 
 
+@router.post("/world-cup/bootstrap")
+async def bootstrap_world_cup_endpoint(
+    reset: bool = False,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Reset optional old state and load FIFA World Cup 2026 group-stage fixtures locally."""
+    try:
+        return await bootstrap_world_cup(db, reset=reset)
+    except FootballAPIError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
 # ─────────────── Sync teams for a tournament ───────────────
 
 @router.post("/tournaments/{tournament_id}/sync-teams", response_model=SyncSummary)
@@ -96,6 +113,7 @@ async def sync_teams(
         if existing:
             existing.name = item["name"]
             existing.short_name = item.get("short_name")
+            existing.tla = item.get("tla")
             existing.crest_url = item.get("crest_url")
             existing.synced_at = now
             summary.updated += 1
@@ -104,6 +122,7 @@ async def sync_teams(
                 id=item["id"],
                 name=item["name"],
                 short_name=item.get("short_name"),
+                tla=item.get("tla"),
                 crest_url=item.get("crest_url"),
                 synced_at=now,
             )
@@ -144,7 +163,11 @@ async def sync_fixtures(
         raise HTTPException(status_code=404, detail="Tournament not found")
 
     try:
-        api_data = await fetch_fixtures_for_competition(tournament.competition_id)
+        api_data = await fetch_fixtures_for_competition(
+            tournament.competition_id,
+            season=WORLD_CUP_SEASON if tournament.competition_id == WORLD_CUP_COMPETITION_ID else None,
+            stage=GROUP_STAGE if tournament.competition_id == WORLD_CUP_COMPETITION_ID else None,
+        )
     except FootballAPIError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
@@ -157,6 +180,40 @@ async def sync_fixtures(
             summary.skipped += 1
             continue
 
+        for side in ("home_team", "away_team"):
+            team_item = item.get(side) or {}
+            team = db.query(Team).filter(Team.id == team_item.get("id")).first()
+            if team:
+                team.name = team_item.get("name")
+                team.short_name = team_item.get("short_name")
+                team.tla = team_item.get("tla")
+                team.crest_url = team_item.get("crest_url")
+                team.synced_at = now
+            else:
+                team = Team(
+                    id=team_item.get("id"),
+                    name=team_item.get("name"),
+                    short_name=team_item.get("short_name"),
+                    tla=team_item.get("tla"),
+                    crest_url=team_item.get("crest_url"),
+                    synced_at=now,
+                )
+                db.add(team)
+                db.flush()
+            link_exists = db.execute(
+                competition_teams.select().where(
+                    competition_teams.c.competition_id == tournament.competition_id,
+                    competition_teams.c.team_id == team.id,
+                )
+            ).first()
+            if not link_exists:
+                db.execute(
+                    competition_teams.insert().values(
+                        competition_id=tournament.competition_id,
+                        team_id=team.id,
+                    )
+                )
+
         existing = db.query(Match).filter(Match.id == item["id"]).first()
         if existing:
             existing.home_team_id = item["home_team_id"]
@@ -164,7 +221,11 @@ async def sync_fixtures(
             existing.kickoff_at = item.get("kickoff_at")
             existing.matchday = item.get("matchday")
             existing.stage = item.get("stage")
+            existing.group_name = item.get("group")
+            existing.venue = item.get("venue")
             existing.status = item.get("status")
+            existing.last_updated = item.get("last_updated")
+            existing.metadata_json = item.get("metadata_json")
             existing.synced_at = now
             summary.updated += 1
         else:
@@ -176,7 +237,11 @@ async def sync_fixtures(
                 kickoff_at=item.get("kickoff_at"),
                 matchday=item.get("matchday"),
                 stage=item.get("stage"),
+                group_name=item.get("group"),
+                venue=item.get("venue"),
                 status=item.get("status"),
+                last_updated=item.get("last_updated"),
+                metadata_json=item.get("metadata_json"),
                 synced_at=now,
             ))
             summary.created += 1
@@ -242,7 +307,12 @@ def list_competitions(
     db: Session = Depends(get_db),
 ):
     """List all locally stored competitions (for dropdown)."""
-    return db.query(Competition).order_by(Competition.name).all()
+    return (
+        db.query(Competition)
+        .filter(Competition.id == WORLD_CUP_COMPETITION_ID)
+        .order_by(Competition.name)
+        .all()
+    )
 
 
 @router.get("/competitions/{competition_id}/teams", response_model=list[TeamOut])

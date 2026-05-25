@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 BASE_URL = settings.FOOTBALL_API_BASE_URL
 HEADERS = {"X-Auth-Token": settings.FOOTBALL_API_KEY}
 TIMEOUT = 15.0  # seconds
+WORLD_CUP_COMPETITION_ID = 2000
+WORLD_CUP_COMPETITION_CODE = "WC"
+WORLD_CUP_SEASON = 2026
 
 
 class FootballAPIError(Exception):
@@ -46,6 +49,33 @@ async def _get(path: str) -> dict:
         return resp.json()
 
 
+def _parse_utc_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _map_team(team: dict) -> dict:
+    return {
+        "id": team.get("id"),
+        "name": team.get("name"),
+        "short_name": team.get("shortName"),
+        "tla": team.get("tla"),
+        "crest_url": team.get("crest"),
+    }
+
+
+def _map_score(score: dict | None) -> dict | None:
+    if not score:
+        return None
+    return {
+        "winner": score.get("winner"),
+        "duration": score.get("duration"),
+        "full_time": score.get("fullTime"),
+        "half_time": score.get("halfTime"),
+    }
+
+
 # ─────────────── Public functions ───────────────
 
 
@@ -66,6 +96,20 @@ async def fetch_competitions() -> list[dict]:
     return result
 
 
+async def fetch_world_cup_competition() -> dict:
+    """Fetch FIFA World Cup competition metadata."""
+    comp = await _get(f"/competitions/{WORLD_CUP_COMPETITION_CODE}")
+    return {
+        "id": comp["id"],
+        "name": comp["name"],
+        "code": comp.get("code"),
+        "emblem_url": comp.get("emblem"),
+        "current_season": comp.get("currentSeason"),
+        "seasons": comp.get("seasons", []),
+        "last_updated": comp.get("lastUpdated"),
+    }
+
+
 async def fetch_teams_for_competition(competition_id: int) -> list[dict]:
     """
     Fetch all teams in a competition.
@@ -78,30 +122,58 @@ async def fetch_teams_for_competition(competition_id: int) -> list[dict]:
             "id": team["id"],
             "name": team["name"],
             "short_name": team.get("shortName"),
+            "tla": team.get("tla"),
             "crest_url": team.get("crest"),
         })
     return result
 
 
-async def fetch_fixtures_for_competition(competition_id: int) -> list[dict]:
+async def fetch_fixtures_for_competition(
+    competition_id: int,
+    season: int | None = None,
+    stage: str | None = None,
+) -> list[dict]:
     """
     Fetch all matches/fixtures for a competition.
     Returns a list of dicts with keys: id, home_team_id, away_team_id,
     kickoff_at, matchday, stage, status.
     """
-    data = await _get(f"/competitions/{competition_id}/matches")
+    params = []
+    if season:
+        params.append(f"season={season}")
+    if stage:
+        params.append(f"stage={stage}")
+    query = f"?{'&'.join(params)}" if params else ""
+    data = await _get(f"/competitions/{competition_id}/matches{query}")
     result = []
     for match in data.get("matches", []):
-        kickoff = match.get("utcDate")
+        home_team = _map_team(match.get("homeTeam", {}))
+        away_team = _map_team(match.get("awayTeam", {}))
+        score = _map_score(match.get("score"))
         result.append({
             "id": match["id"],
             "competition_id": competition_id,
-            "home_team_id": match.get("homeTeam", {}).get("id"),
-            "away_team_id": match.get("awayTeam", {}).get("id"),
-            "kickoff_at": kickoff,
+            "home_team": home_team,
+            "away_team": away_team,
+            "home_team_id": home_team.get("id"),
+            "away_team_id": away_team.get("id"),
+            "kickoff_at": _parse_utc_datetime(match.get("utcDate")),
             "matchday": match.get("matchday"),
             "stage": match.get("stage"),
+            "group": match.get("group"),
+            "venue": match.get("venue"),
             "status": match.get("status"),
+            "last_updated": _parse_utc_datetime(match.get("lastUpdated")),
+            "score": score,
+            "metadata_json": {
+                "area": match.get("area"),
+                "season": match.get("season"),
+                "score": score,
+                "minute": match.get("minute"),
+                "injury_time": match.get("injuryTime"),
+                "attendance": match.get("attendance"),
+                "referees": match.get("referees", []),
+            },
         })
     return result
 
@@ -162,23 +234,16 @@ async def fetch_matches_for_matchday(
         away_team = match.get("awayTeam", {})
         result.append({
             "id": match["id"],
-            "home_team": {
-                "id": home_team.get("id"),
-                "name": home_team.get("name"),
-                "short_name": home_team.get("shortName"),
-                "crest_url": home_team.get("crest"),
-            },
-            "away_team": {
-                "id": away_team.get("id"),
-                "name": away_team.get("name"),
-                "short_name": away_team.get("shortName"),
-                "crest_url": away_team.get("crest"),
-            },
-            "kickoff_at": match.get("utcDate"),
+            "home_team": _map_team(home_team),
+            "away_team": _map_team(away_team),
+            "kickoff_at": _parse_utc_datetime(match.get("utcDate")),
             "status": match.get("status"),
             "matchday": match.get("matchday"),
             "stage": match.get("stage"),
             "group": match.get("group"),
+            "venue": match.get("venue"),
+            "last_updated": _parse_utc_datetime(match.get("lastUpdated")),
+            "score": _map_score(match.get("score")),
         })
     return result
 

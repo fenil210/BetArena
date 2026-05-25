@@ -172,6 +172,21 @@ export function useSyncCompetitions() {
     });
 }
 
+export function useBootstrapWorldCup() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ reset = false } = {}) =>
+            client.post(`/admin/world-cup/bootstrap?reset=${reset}`).then(r => r.data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['tournaments'] });
+            qc.invalidateQueries({ queryKey: ['events'] });
+            qc.invalidateQueries({ queryKey: ['markets'] });
+            qc.invalidateQueries({ queryKey: ['leaderboard'] });
+            qc.invalidateQueries({ queryKey: ['admin'] });
+        },
+    });
+}
+
 export function useSyncTeams(tournamentId) {
     return useMutation({
         mutationFn: () => client.post(`/admin/tournaments/${tournamentId}/sync-teams`).then(r => r.data),

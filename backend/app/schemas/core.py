@@ -30,6 +30,7 @@ class TeamOut(BaseModel):
     id: int
     name: str
     short_name: str | None = None
+    tla: str | None = None
     crest_url: str | None = None
     synced_at: datetime | None = None
 
@@ -60,7 +61,11 @@ class MatchOut(BaseModel):
     kickoff_at: datetime | None = None
     matchday: int | None = None
     stage: str | None = None
+    group_name: str | None = None
+    venue: str | None = None
     status: str | None = None
+    last_updated: datetime | None = None
+    metadata_json: dict | None = None
     synced_at: datetime | None = None
     home_team: TeamOut | None = None
     away_team: TeamOut | None = None

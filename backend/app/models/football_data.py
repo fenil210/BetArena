@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 
 from sqlalchemy import (
-    String, Integer, Date, DateTime, ForeignKey, Table, Column,
+    String, Integer, Date, DateTime, ForeignKey, Table, Column, JSON,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -58,6 +58,7 @@ class Team(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     short_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    tla: Mapped[str | None] = mapped_column(String(10), nullable=True)
     crest_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     synced_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -123,7 +124,13 @@ class Match(Base):
     )
     matchday: Mapped[int | None] = mapped_column(Integer, nullable=True)
     stage: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    group_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    venue: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    last_updated: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     synced_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

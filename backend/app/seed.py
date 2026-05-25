@@ -29,7 +29,7 @@ def seed():
         username="admin",
         email="admin@mailinator.com",
         password_hash=pwd_context.hash("admin@123"),
-        balance=999999,
+        balance=0,
         is_admin=True,
     )
     db.add(admin)

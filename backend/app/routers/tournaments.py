@@ -5,6 +5,7 @@ from app.dependencies import get_db, get_current_user, require_admin
 from app.models.user import User
 from app.models.tournament import Tournament
 from app.schemas.core import TournamentCreate, TournamentUpdate, TournamentOut
+from app.services.football_api import WORLD_CUP_COMPETITION_ID
 
 router = APIRouter(tags=["Tournaments"])
 
@@ -22,6 +23,12 @@ def create_tournament(
     db: Session = Depends(get_db),
 ):
     """Admin creates a new tournament linked to a competition."""
+    if body.competition_id != WORLD_CUP_COMPETITION_ID:
+        raise HTTPException(status_code=400, detail="BetArena is currently configured for FIFA World Cup only")
+    existing = db.query(Tournament).filter(Tournament.competition_id == WORLD_CUP_COMPETITION_ID).first()
+    if existing:
+        return existing
+
     tournament = Tournament(
         name=body.name,
         competition_id=body.competition_id,
@@ -61,6 +68,7 @@ def list_tournaments(
     """List all tournaments."""
     return (
         db.query(Tournament)
+        .filter(Tournament.competition_id == WORLD_CUP_COMPETITION_ID)
         .order_by(Tournament.created_at.desc())
         .all()
     )

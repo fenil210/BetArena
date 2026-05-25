@@ -41,6 +41,8 @@ def adjust_balance(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if user.is_admin:
+        raise HTTPException(status_code=400, detail="Admin accounts do not carry betting coins")
 
     new_balance = user.balance + body.amount
     if new_balance < 0:
