@@ -4,13 +4,14 @@ import { useAuth } from '../hooks/useAuth';
 import { Link } from 'react-router-dom';
 import {
     Trophy,
-    TrendingUp,
     Zap,
     ArrowRight,
     Crown,
     Coins,
     Target,
+    CalendarDays,
 } from 'lucide-react';
+import { Badge, EmptyState, LoadingRows, Panel, SectionHeader, StatCard } from '../components/ui';
 
 export default function DashboardPage() {
     const { user } = useAuth();
@@ -18,212 +19,145 @@ export default function DashboardPage() {
     const { data: leaderboard, isLoading: loadingL } = useLeaderboard();
     const { data: feed, isLoading: loadingF } = useFeed(5, 0);
 
+    const rank = leaderboard?.findIndex((entry) => entry.user_id === user?.id);
+
     return (
-        <div className="space-y-6 animate-fade-in">
-            {/* Welcome header */}
-            <div className="glass-card p-6 bg-gradient-to-br from-dark-800/80 to-dark-900/60">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="page-stack">
+            <Panel className="p-5 sm:p-6">
+                <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
                     <div>
-                        <h1 className="text-2xl font-bold text-white">
-                            Welcome back, <span className="gradient-text">{user?.username}</span>
+                        <p className="eyebrow">Dashboard</p>
+                        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                            Welcome back, {user?.username}
                         </h1>
-                        <p className="text-dark-400 mt-1">Ready to place your predictions?</p>
+                        <p className="mt-1 text-sm text-slate-600">
+                            Review markets, track your position, and follow recent betting activity.
+                        </p>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <StatBox
-                            icon={<Coins className="w-5 h-5 text-gold-400" />}
+                    <div className="grid grid-cols-2 gap-3 sm:min-w-80">
+                        <StatCard
+                            icon={<Coins className="h-5 w-5" />}
                             label="Balance"
                             value={user?.balance?.toLocaleString()}
-                            accent="gold"
+                            tone="gold"
                         />
-                        <StatBox
-                            icon={<Target className="w-5 h-5 text-accent-400" />}
+                        <StatCard
+                            icon={<Target className="h-5 w-5" />}
                             label="Rank"
-                            value={
-                                leaderboard
-                                    ? `#${leaderboard.findIndex((e) => e.user_id === user?.id) + 1 || '-'}`
-                                    : '...'
-                            }
-                            accent="green"
+                            value={rank >= 0 ? `#${rank + 1}` : '-'}
+                            tone="teal"
                         />
                     </div>
                 </div>
-            </div>
+            </Panel>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Active tournaments */}
-                <div className="lg:col-span-2 space-y-4">
-                    <SectionHeader
-                        icon={<Trophy className="w-5 h-5 text-accent-400" />}
-                        title="Active Tournaments"
-                        link="/tournaments"
-                    />
-                    {loadingT ? (
-                        <LoadingCards count={2} />
-                    ) : tournaments?.length === 0 ? (
-                        <EmptyState text="No tournaments yet. Your admin will set things up!" />
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {tournaments?.slice(0, 4).map((t) => (
-                                <Link
-                                    key={t.id}
-                                    to={`/tournaments/${t.id}`}
-                                    className="glass-card p-5 hover:border-accent-500/30 transition-all group"
-                                >
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <h3 className="font-semibold text-white group-hover:text-accent-400 transition-colors">
-                                                {t.name}
-                                            </h3>
-                                            <span className={`badge mt-2 badge-${t.status === 'active' ? 'open' : t.status === 'upcoming' ? 'coming-soon' : 'settled'}`}>
-                                                {t.status}
-                                            </span>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
+                <div className="space-y-6">
+                    <section className="space-y-3">
+                        <SectionHeader
+                            icon={<Trophy className="h-5 w-5" />}
+                            title="Active tournaments"
+                            link="/tournaments"
+                        />
+                        {loadingT ? (
+                            <LoadingRows count={3} />
+                        ) : tournaments?.length === 0 ? (
+                            <EmptyState
+                                icon={<Trophy className="h-6 w-6" />}
+                                title="No tournaments yet"
+                                description="Your admin will set up tournaments soon."
+                            />
+                        ) : (
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                {tournaments?.slice(0, 4).map((tournament) => (
+                                    <Link
+                                        key={tournament.id}
+                                        to={`/tournaments/${tournament.id}`}
+                                        className="group rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-teal-300 hover:bg-teal-50/25"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <h3 className="truncate text-base font-semibold text-slate-950">{tournament.name}</h3>
+                                                <div className="mt-3 flex items-center gap-2">
+                                                    <Badge status={tournament.status} />
+                                                    <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                                                        <CalendarDays className="h-3.5 w-3.5" />
+                                                        Competition {tournament.competition_id}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <ArrowRight className="h-5 w-5 text-slate-400 transition group-hover:text-teal-800" />
                                         </div>
-                                        <ArrowRight className="w-5 h-5 text-dark-500 group-hover:text-accent-400 transition-colors" />
-                                    </div>
-                                </Link>
-                            ))}
-                        </div>
-                    )}
+                                    </Link>
+                                ))}
+                            </div>
+                        )}
+                    </section>
 
-                    {/* Recent Feed */}
-                    <SectionHeader
-                        icon={<Zap className="w-5 h-5 text-gold-400" />}
-                        title="Recent Activity"
-                        link="/feed"
-                    />
-                    {loadingF ? (
-                        <LoadingCards count={3} />
-                    ) : feed?.length === 0 ? (
-                        <EmptyState text="No activity yet. Place your first bet!" />
-                    ) : (
-                        <div className="space-y-2">
-                            {feed?.slice(0, 5).map((item) => (
-                                <div
-                                    key={item.id}
-                                    className="glass-card px-4 py-3 flex items-start gap-3"
-                                >
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${item.action_type === 'bet_placed'
-                                        ? 'bg-accent-500/20 text-accent-400'
-                                        : item.action_type === 'market_settled'
-                                            ? 'bg-gold-500/20 text-gold-400'
-                                            : 'bg-dark-600/50 text-dark-300'
-                                        }`}>
-                                        {item.action_type === 'bet_placed' ? (
-                                            <Target className="w-4 h-4" />
-                                        ) : (
-                                            <Trophy className="w-4 h-4" />
-                                        )}
+                    <section className="space-y-3">
+                        <SectionHeader
+                            icon={<Zap className="h-5 w-5" />}
+                            title="Recent activity"
+                            link="/feed"
+                        />
+                        {loadingF ? (
+                            <LoadingRows count={4} />
+                        ) : feed?.length === 0 ? (
+                            <EmptyState
+                                icon={<Zap className="h-6 w-6" />}
+                                title="No activity yet"
+                                description="Activity will appear here after markets open and bets are placed."
+                            />
+                        ) : (
+                            <Panel className="divide-y divide-slate-200 overflow-hidden">
+                                {feed?.slice(0, 5).map((item) => (
+                                    <div key={item.id} className="flex gap-3 p-4">
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-600">
+                                            {item.action_type === 'bet_placed' ? <Target className="h-4 w-4" /> : <Trophy className="h-4 w-4" />}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="line-clamp-2 text-sm font-medium leading-5 text-slate-800">{item.description}</p>
+                                            <p className="mt-1 text-xs text-slate-500">{formatDateTime(item.created_at)}</p>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm text-dark-200 truncate">{item.description}</p>
-                                        <p className="text-xs text-dark-500 mt-0.5">
-                                            {formatDateTime(item.created_at)}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                                ))}
+                            </Panel>
+                        )}
+                    </section>
                 </div>
 
-                {/* Leaderboard sidebar */}
-                <div className="space-y-4">
+                <section className="space-y-3">
                     <SectionHeader
-                        icon={<Crown className="w-5 h-5 text-gold-400" />}
+                        icon={<Crown className="h-5 w-5" />}
                         title="Leaderboard"
                         link="/leaderboard"
                     />
                     {loadingL ? (
-                        <LoadingCards count={5} />
+                        <LoadingRows count={6} />
                     ) : (
-                        <div className="glass-card overflow-hidden">
-                            {leaderboard?.slice(0, 10).map((entry, i) => (
-                                <div
-                                    key={entry.user_id}
-                                    className={`flex items-center gap-3 px-4 py-3 ${i !== 0 ? 'border-t border-dark-700/30' : ''
-                                        } ${entry.user_id === user?.id ? 'bg-accent-500/5' : ''}`}
-                                >
-                                    <span className={`w-6 text-center text-sm font-bold ${i === 0 ? 'text-gold-400' : i === 1 ? 'text-dark-300' : i === 2 ? 'text-amber-600' : 'text-dark-500'
-                                        }`}>
-                                        {entry.rank}
-                                    </span>
-                                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-accent-600 to-teal-500 flex items-center justify-center text-xs font-bold text-white">
-                                        {entry.username[0].toUpperCase()}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className={`text-sm font-medium truncate ${entry.user_id === user?.id ? 'text-accent-400' : 'text-white'}`}>
+                        <Panel className="divide-y divide-slate-200 overflow-hidden">
+                            {leaderboard?.slice(0, 10).map((entry) => {
+                                const isMe = entry.user_id === user?.id;
+                                return (
+                                    <div key={entry.user_id} className={`flex items-center gap-3 p-4 ${isMe ? 'bg-teal-50/60' : ''}`}>
+                                        <span className="w-7 text-center text-sm font-semibold text-slate-500">{entry.rank}</span>
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+                                            {entry.username[0].toUpperCase()}
+                                        </div>
+                                        <p className={`min-w-0 flex-1 truncate text-sm font-semibold ${isMe ? 'text-teal-900' : 'text-slate-800'}`}>
                                             {entry.username}
                                         </p>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <Coins className="w-3.5 h-3.5 text-gold-400" />
-                                        <span className="text-sm font-semibold text-gold-400">
+                                        <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-800">
+                                            <Coins className="h-4 w-4" />
                                             {entry.balance.toLocaleString()}
                                         </span>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
+                                );
+                            })}
+                        </Panel>
                     )}
-                </div>
+                </section>
             </div>
-        </div>
-    );
-}
-
-// ─── Sub-components ───────────────────
-
-function StatBox({ icon, label, value, accent }) {
-    return (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-dark-700/50 border border-dark-600/30">
-            {icon}
-            <div>
-                <p className="text-xs text-dark-400">{label}</p>
-                <p className={`text-lg font-bold ${accent === 'gold' ? 'text-gold-400' : 'text-accent-400'}`}>
-                    {value}
-                </p>
-            </div>
-        </div>
-    );
-}
-
-function SectionHeader({ icon, title, link }) {
-    return (
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-                {icon}
-                <h2 className="text-lg font-semibold text-white">{title}</h2>
-            </div>
-            {link && (
-                <Link
-                    to={link}
-                    className="text-sm text-dark-400 hover:text-accent-400 transition-colors flex items-center gap-1"
-                >
-                    View all <ArrowRight className="w-4 h-4" />
-                </Link>
-            )}
-        </div>
-    );
-}
-
-function LoadingCards({ count }) {
-    return (
-        <div className="space-y-3">
-            {Array.from({ length: count }).map((_, i) => (
-                <div key={i} className="glass-card p-4 animate-pulse">
-                    <div className="h-4 bg-dark-700 rounded w-3/4 mb-2" />
-                    <div className="h-3 bg-dark-700 rounded w-1/2" />
-                </div>
-            ))}
-        </div>
-    );
-}
-
-function EmptyState({ text }) {
-    return (
-        <div className="glass-card p-8 text-center">
-            <p className="text-dark-400">{text}</p>
         </div>
     );
 }

@@ -1,18 +1,25 @@
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useUserStats, useUserStreak } from '../hooks/useApi';
-import { 
-    User, Coins, Shield, Calendar, Lock, Loader2, TrendingUp, 
-    Flame, Target, TrendingDown, BarChart3 
+import {
+    User,
+    Coins,
+    Shield,
+    Calendar,
+    Lock,
+    TrendingUp,
+    Target,
+    BarChart3,
 } from 'lucide-react';
 import client from '../api/client';
 import toast from 'react-hot-toast';
 import { formatDate } from '../utils/formatDate';
+import { Badge, Button, FormField, PageHeader, Panel, StatCard, TextInput, cx } from '../components/ui';
 
 export default function ProfilePage() {
-    const { user, refreshUser } = useAuth();
-    const { data: stats, isLoading: statsLoading } = useUserStats();
-    const { data: streak, isLoading: streakLoading } = useUserStreak();
+    const { user } = useAuth();
+    const { data: stats } = useUserStats();
+    const { data: streak } = useUserStreak();
     const [showPwForm, setShowPwForm] = useState(false);
     const [currentPw, setCurrentPw] = useState('');
     const [newPw, setNewPw] = useState('');
@@ -27,7 +34,7 @@ export default function ProfilePage() {
                 current_password: currentPw,
                 new_password: newPw,
             });
-            toast.success('Password changed!');
+            toast.success('Password changed');
             setShowPwForm(false);
             setCurrentPw('');
             setNewPw('');
@@ -44,232 +51,130 @@ export default function ProfilePage() {
     const dailyChart = stats?.daily_chart || [];
 
     return (
-        <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
-            <div className="flex items-center gap-3">
-                <User className="w-6 h-6 text-accent-400" />
-                <h1 className="text-2xl font-bold text-white">Profile</h1>
-            </div>
+        <div className="page-stack mx-auto max-w-5xl">
+            <PageHeader
+                icon={<User className="h-6 w-6" />}
+                title="Profile"
+                description="Your account, balance, betting stats, and security settings."
+            />
 
-            {/* Profile card with streak */}
-            <div className="glass-card p-6">
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent-500 to-teal-400 flex items-center justify-center text-2xl font-bold text-white shadow-glow-green">
-                        {user.username?.[0]?.toUpperCase()}
+            <Panel className="p-5 sm:p-6">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-2xl font-semibold text-white">
+                            {user.username?.[0]?.toUpperCase()}
+                        </div>
+                        <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h2 className="text-xl font-semibold text-slate-950">{user.username}</h2>
+                                {user.is_admin && (
+                                    <Badge status="locked">
+                                        <Shield className="h-3 w-3" />
+                                        Admin
+                                    </Badge>
+                                )}
+                            </div>
+                            <p className="mt-1 text-sm text-slate-500">{user.email}</p>
+                        </div>
                     </div>
-                    <div className="flex-1">
-                        <h2 className="text-xl font-bold text-white">{user.username}</h2>
-                        <p className="text-dark-400">{user.email}</p>
-                        {user.is_admin && (
-                            <span className="badge bg-gold-500/20 text-gold-400 mt-1">
-                                <Shield className="w-3 h-3 mr-1" /> Admin
-                            </span>
-                        )}
-                    </div>
-                    
-                    {/* Streak Badge */}
+
                     {streak && (
-                        <div className="text-center">
-                            {streak.current_streak > 0 ? (
-                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30">
-                                    <Flame className="w-6 h-6 text-orange-400" />
-                                    <div>
-                                        <div className="text-2xl font-bold text-orange-400">{streak.current_streak}</div>
-                                        <div className="text-xs text-orange-300">Win Streak</div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-dark-700/40">
-                                    <Target className="w-5 h-5 text-dark-400" />
-                                    <div>
-                                        <div className="text-xl font-bold text-dark-400">{streak.best_streak}</div>
-                                        <div className="text-xs text-dark-500">Best Streak</div>
-                                    </div>
-                                </div>
-                            )}
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                {streak.current_streak > 0 ? 'Win streak' : 'Best streak'}
+                            </p>
+                            <p className="mt-1 text-2xl font-semibold text-slate-950">
+                                {streak.current_streak > 0 ? streak.current_streak : streak.best_streak}
+                            </p>
                         </div>
                     )}
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div className="bg-dark-700/40 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Coins className="w-4 h-4 text-gold-400" />
-                            <span className="text-xs text-dark-400">Balance</span>
-                        </div>
-                        <p className="text-2xl font-bold text-gold-400">{user.balance?.toLocaleString()}</p>
-                    </div>
-                    <div className="bg-dark-700/40 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Calendar className="w-4 h-4 text-accent-400" />
-                            <span className="text-xs text-dark-400">Joined</span>
-                        </div>
-                        <p className="text-lg font-semibold text-white">
-                            {formatDate(user.created_at)}
-                        </p>
-                    </div>
-                    {streak && (
-                        <div className="bg-dark-700/40 rounded-xl p-4">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Target className="w-4 h-4 text-accent-400" />
-                                <span className="text-xs text-dark-400">Best Streak</span>
-                            </div>
-                            <p className="text-2xl font-bold text-white">{streak.best_streak}</p>
-                        </div>
-                    )}
-                    {summary && (
-                        <div className="bg-dark-700/40 rounded-xl p-4">
-                            <div className="flex items-center gap-2 mb-1">
-                                <BarChart3 className="w-4 h-4 text-accent-400" />
-                                <span className="text-xs text-dark-400">Total Bets</span>
-                            </div>
-                            <p className="text-2xl font-bold text-white">{summary.total_bets}</p>
-                        </div>
-                    )}
+                <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    <StatCard icon={<Coins className="h-5 w-5" />} label="Balance" value={user.balance?.toLocaleString()} tone="gold" />
+                    <StatCard icon={<Calendar className="h-5 w-5" />} label="Joined" value={formatDate(user.created_at)} />
+                    {streak && <StatCard icon={<Target className="h-5 w-5" />} label="Best streak" value={streak.best_streak} tone="teal" />}
+                    {summary && <StatCard icon={<BarChart3 className="h-5 w-5" />} label="Total bets" value={summary.total_bets} />}
                 </div>
-            </div>
+            </Panel>
 
-            {/* Stats Grid */}
             {summary && (
-                <div className="glass-card p-6">
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
-                        <BarChart3 className="w-5 h-5 text-accent-400" />
-                        Betting Stats
-                    </h3>
-                    
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <StatCard 
-                            label="Win Rate" 
-                            value={`${summary.win_rate}%`} 
-                            subValue={`${summary.won_bets}W / ${summary.lost_bets}L`}
-                            color="accent"
-                        />
-                        <StatCard 
-                            label="30 Day Win Rate" 
-                            value={`${summary.recent_win_rate}%`} 
-                            color="blue"
-                        />
-                        <StatCard 
-                            label="Total Profit" 
+                <Panel className="p-5">
+                    <div className="mb-4 flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5 text-teal-800" />
+                        <h3 className="text-base font-semibold text-slate-950">Betting stats</h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                        <StatCard label="Win rate" value={`${summary.win_rate}%`} subValue={`${summary.won_bets}W / ${summary.lost_bets}L`} tone="teal" />
+                        <StatCard label="30 day win rate" value={`${summary.recent_win_rate}%`} tone="blue" />
+                        <StatCard
+                            label="Total profit"
                             value={`${summary.total_profit >= 0 ? '+' : ''}${summary.total_profit.toLocaleString()}`}
                             subValue={`${summary.roi}% ROI`}
-                            color={summary.total_profit >= 0 ? 'green' : 'loss'}
+                            tone={summary.total_profit >= 0 ? 'teal' : 'red'}
                         />
-                        <StatCard 
-                            label="Total Staked" 
-                            value={summary.total_staked.toLocaleString()} 
-                            color="gold"
-                        />
+                        <StatCard label="Total staked" value={summary.total_staked.toLocaleString()} tone="gold" />
                     </div>
-                </div>
+                </Panel>
             )}
 
-            {/* Daily P/L Chart */}
             {dailyChart.length > 0 && (
-                <div className="glass-card p-6">
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
-                        <TrendingUp className="w-5 h-5 text-accent-400" />
-                        Daily Profit/Loss (Last 30 Days)
-                    </h3>
-                    
+                <Panel className="p-5">
+                    <div className="mb-4 flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-teal-800" />
+                        <h3 className="text-base font-semibold text-slate-950">Daily profit and loss</h3>
+                    </div>
                     <div className="space-y-3">
                         {dailyChart.slice(-10).map((day) => (
-                            <div key={day.date} className="flex items-center gap-3">
-                                <span className="text-xs text-dark-400 w-20">
+                            <div key={day.date} className="grid grid-cols-[82px_1fr_70px] items-center gap-3">
+                                <span className="text-xs font-medium text-slate-500">
                                     {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                 </span>
-                                <div className="flex-1 h-8 bg-dark-700/40 rounded-lg overflow-hidden relative">
+                                <div className="h-2 rounded-full bg-slate-100">
                                     {day.profit !== 0 && (
-                                        <div 
-                                            className={`absolute top-0 h-full transition-all duration-500 ${
-                                                day.profit > 0 ? 'bg-accent-500/30 left-1/2' : 'bg-loss-500/30 right-1/2'
-                                            }`}
-                                            style={{ 
-                                                width: `${Math.min(Math.abs(day.profit) / 500 * 50, 50)}%`,
-                                            }}
+                                        <div
+                                            className={cx('h-2 rounded-full', day.profit > 0 ? 'bg-teal-700' : 'bg-red-600')}
+                                            style={{ width: `${Math.min(Math.abs(day.profit) / 500 * 100, 100)}%` }}
                                         />
                                     )}
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <span className={`text-xs font-bold ${
-                                            day.profit > 0 ? 'text-accent-400' : 
-                                            day.profit < 0 ? 'text-loss-400' : 'text-dark-500'
-                                        }`}>
-                                            {day.profit > 0 ? '+' : ''}{day.profit.toLocaleString()}
-                                        </span>
-                                    </div>
                                 </div>
+                                <span className={cx('text-right text-sm font-semibold', day.profit >= 0 ? 'text-teal-800' : 'text-red-700')}>
+                                    {day.profit > 0 ? '+' : ''}{day.profit.toLocaleString()}
+                                </span>
                             </div>
                         ))}
                     </div>
-                </div>
+                </Panel>
             )}
 
-            {/* Change password */}
-            <div className="glass-card p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                        <Lock className="w-5 h-5 text-dark-400" />
-                        Security
-                    </h3>
+            <Panel className="p-5">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <Lock className="h-5 w-5 text-slate-500" />
+                        <h3 className="text-base font-semibold text-slate-950">Security</h3>
+                    </div>
                     {!showPwForm && (
-                        <button onClick={() => setShowPwForm(true)} className="btn-secondary text-sm">
-                            Change Password
-                        </button>
+                        <Button onClick={() => setShowPwForm(true)}>
+                            Change password
+                        </Button>
                     )}
                 </div>
 
                 {showPwForm && (
-                    <form onSubmit={handleChangePw} className="space-y-4 animate-fade-in">
-                        <div>
-                            <label className="block text-sm text-dark-400 mb-1">Current Password</label>
-                            <input
-                                type="password"
-                                value={currentPw}
-                                onChange={(e) => setCurrentPw(e.target.value)}
-                                className="w-full px-4 py-2.5 rounded-xl bg-dark-700/60 border border-dark-500/40
-                         text-white focus:outline-none focus:border-accent-500/50 transition-colors"
-                                autoFocus
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-dark-400 mb-1">New Password</label>
-                            <input
-                                type="password"
-                                value={newPw}
-                                onChange={(e) => setNewPw(e.target.value)}
-                                className="w-full px-4 py-2.5 rounded-xl bg-dark-700/60 border border-dark-500/40
-                         text-white focus:outline-none focus:border-accent-500/50 transition-colors"
-                            />
-                        </div>
-                        <div className="flex gap-2">
-                            <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2">
-                                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                                Update
-                            </button>
-                            <button type="button" onClick={() => setShowPwForm(false)} className="btn-secondary">
-                                Cancel
-                            </button>
+                    <form onSubmit={handleChangePw} className="grid gap-4 sm:grid-cols-2">
+                        <FormField label="Current password">
+                            <TextInput type="password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} autoFocus />
+                        </FormField>
+                        <FormField label="New password">
+                            <TextInput type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} />
+                        </FormField>
+                        <div className="flex gap-2 sm:col-span-2">
+                            <Button type="submit" variant="primary" loading={loading}>Update</Button>
+                            <Button type="button" onClick={() => setShowPwForm(false)}>Cancel</Button>
                         </div>
                     </form>
                 )}
-            </div>
-        </div>
-    );
-}
-
-function StatCard({ label, value, subValue, color }) {
-    const colorClasses = {
-        accent: 'text-accent-400',
-        blue: 'text-blue-400',
-        green: 'text-green-400',
-        loss: 'text-loss-400',
-        gold: 'text-gold-400',
-    };
-
-    return (
-        <div className="bg-dark-800/50 rounded-xl p-4 text-center">
-            <p className="text-xs text-dark-400 mb-1">{label}</p>
-            <p className={`text-xl font-bold ${colorClasses[color] || 'text-white'}`}>{value}</p>
-            {subValue && <p className="text-xs text-dark-500 mt-1">{subValue}</p>}
+            </Panel>
         </div>
     );
 }

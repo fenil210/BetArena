@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLeaderboard, useTournamentLeaderboard, useTournaments } from '../hooks/useApi';
 import { useAuth } from '../hooks/useAuth';
 import { Crown, Coins, Medal, TrendingUp, TrendingDown } from 'lucide-react';
+import { EmptyState, LoadingRows, PageHeader, Panel, SelectInput, cx } from '../components/ui';
 
 export default function LeaderboardPage() {
     const { user } = useAuth();
@@ -15,122 +16,76 @@ export default function LeaderboardPage() {
     const board = isGlobal ? globalBoard : tournamentBoard;
     const loading = isGlobal ? loadingG : loadingT;
 
-    const rankIcon = (rank) => {
-        if (rank === 1) return <Crown className="w-5 h-5 text-gold-400" />;
-        if (rank === 2) return <Medal className="w-5 h-5 text-dark-300" />;
-        if (rank === 3) return <Medal className="w-5 h-5 text-amber-600" />;
-        return <span className="w-5 text-center text-sm font-bold text-dark-500">{rank}</span>;
-    };
-
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <Crown className="w-6 h-6 text-gold-400" />
-                    <h1 className="text-2xl font-bold text-white">Leaderboard</h1>
-                </div>
-
-                {/* Tournament filter */}
-                <select
-                    value={selectedTournament}
-                    onChange={(e) => setSelectedTournament(e.target.value)}
-                    className="px-4 py-2 rounded-xl bg-dark-800/80 border border-dark-600/40
-                   text-white text-sm focus:outline-none focus:border-accent-500/50"
-                >
-                    <option value="">Global (All Time)</option>
-                    {tournaments?.map((t) => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                </select>
-            </div>
+        <div className="page-stack">
+            <PageHeader
+                icon={<Crown className="h-6 w-6" />}
+                title="Leaderboard"
+                description="Compare balances globally or review tournament-specific performance."
+                actions={(
+                    <SelectInput value={selectedTournament} onChange={(e) => setSelectedTournament(e.target.value)} className="sm:w-72">
+                        <option value="">Global all-time</option>
+                        {tournaments?.map((tournament) => (
+                            <option key={tournament.id} value={tournament.id}>{tournament.name}</option>
+                        ))}
+                    </SelectInput>
+                )}
+            />
 
             {loading ? (
-                <div className="glass-card overflow-hidden">
-                    {Array.from({ length: 8 }).map((_, i) => (
-                        <div key={i} className="flex items-center gap-4 px-5 py-4 border-b border-dark-700/20 animate-pulse">
-                            <div className="w-5 h-5 bg-dark-700 rounded" />
-                            <div className="w-8 h-8 bg-dark-700 rounded-full" />
-                            <div className="flex-1">
-                                <div className="h-4 bg-dark-700 rounded w-1/3" />
-                            </div>
-                            <div className="h-4 bg-dark-700 rounded w-16" />
-                        </div>
-                    ))}
-                </div>
+                <LoadingRows count={8} />
             ) : board?.length === 0 ? (
-                <div className="glass-card p-12 text-center">
-                    <Crown className="w-12 h-12 text-dark-600 mx-auto mb-4" />
-                    <p className="text-dark-400 text-lg">No rankings yet</p>
-                </div>
+                <EmptyState icon={<Crown className="h-6 w-6" />} title="No rankings yet" />
             ) : (
-                <div className="glass-card overflow-hidden">
-                    {/* Header */}
-                    <div className="flex items-center gap-4 px-5 py-3 bg-dark-700/30 text-xs font-semibold text-dark-400 uppercase tracking-wider">
-                        <span className="w-8">#</span>
-                        <span className="flex-1">Player</span>
-                        {isGlobal ? (
-                            <span className="w-24 text-right">Balance</span>
-                        ) : (
-                            <span className="w-24 text-right">P&L</span>
-                        )}
+                <Panel className="overflow-hidden">
+                    <div className="grid grid-cols-[64px_1fr_120px] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <span>Rank</span>
+                        <span>Player</span>
+                        <span className="text-right">{isGlobal ? 'Balance' : 'P&L'}</span>
                     </div>
-
-                    {board.map((entry, i) => {
-                        const rank = entry.rank || i + 1;
-                        const isMe = entry.user_id === user?.id;
-
-                        return (
-                            <div
-                                key={entry.user_id}
-                                className={`flex items-center gap-4 px-5 py-4 border-t border-dark-700/20 transition-colors ${isMe ? 'bg-accent-500/5' : 'hover:bg-dark-700/20'
-                                    } ${i < 3 ? 'bg-dark-700/10' : ''}`}
-                            >
-                                {/* Rank */}
-                                <div className="w-8 flex justify-center">{rankIcon(rank)}</div>
-
-                                {/* Avatar */}
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${i === 0 ? 'bg-gradient-to-br from-gold-400 to-amber-600' :
-                                        i === 1 ? 'bg-gradient-to-br from-dark-300 to-dark-500' :
-                                            i === 2 ? 'bg-gradient-to-br from-amber-600 to-amber-800' :
-                                                'bg-gradient-to-br from-accent-600 to-teal-500'
-                                    }`}>
-                                    {entry.username[0].toUpperCase()}
-                                </div>
-
-                                {/* Name */}
-                                <div className="flex-1 min-w-0">
-                                    <span className={`font-medium truncate block ${isMe ? 'text-accent-400' : 'text-white'}`}>
-                                        {entry.username}
-                                        {isMe && <span className="text-xs text-accent-500 ml-2">(You)</span>}
-                                    </span>
-                                </div>
-
-                                {/* Value */}
-                                {isGlobal ? (
-                                    <div className="w-24 text-right flex items-center justify-end gap-1">
-                                        <Coins className="w-4 h-4 text-gold-400" />
-                                        <span className="font-semibold text-gold-400">
+                    <div className="divide-y divide-slate-200">
+                        {board.map((entry, index) => {
+                            const rank = entry.rank || index + 1;
+                            const isMe = entry.user_id === user?.id;
+                            const pnl = entry.pnl ?? entry.profit ?? 0;
+                            return (
+                                <div key={entry.user_id} className={cx('grid grid-cols-[64px_1fr_120px] items-center gap-4 px-5 py-4', isMe && 'bg-teal-50/60')}>
+                                    <div className="flex items-center justify-center">{rankIcon(rank)}</div>
+                                    <div className="flex min-w-0 items-center gap-3">
+                                        <div className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white', index < 3 ? 'bg-teal-800' : 'bg-slate-900')}>
+                                            {entry.username[0].toUpperCase()}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className={cx('truncate font-semibold', isMe ? 'text-teal-900' : 'text-slate-900')}>
+                                                {entry.username}
+                                                {isMe && <span className="ml-2 text-xs font-medium text-teal-700">You</span>}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {isGlobal ? (
+                                        <div className="flex items-center justify-end gap-1 font-semibold text-amber-800">
+                                            <Coins className="h-4 w-4" />
                                             {entry.balance?.toLocaleString()}
-                                        </span>
-                                    </div>
-                                ) : (
-                                    <div className="w-24 text-right">
-                                        <span className={`font-semibold flex items-center justify-end gap-1 ${(entry.pnl || 0) >= 0 ? 'text-accent-400' : 'text-loss-400'
-                                            }`}>
-                                            {(entry.pnl || 0) >= 0 ? (
-                                                <TrendingUp className="w-4 h-4" />
-                                            ) : (
-                                                <TrendingDown className="w-4 h-4" />
-                                            )}
-                                            {(entry.pnl || 0) >= 0 ? '+' : ''}{entry.pnl || 0}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
+                                        </div>
+                                    ) : (
+                                        <div className={cx('flex items-center justify-end gap-1 font-semibold', pnl >= 0 ? 'text-teal-800' : 'text-red-700')}>
+                                            {pnl >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                                            {pnl >= 0 ? '+' : ''}{pnl}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </Panel>
             )}
         </div>
     );
+}
+
+function rankIcon(rank) {
+    if (rank === 1) return <Crown className="h-5 w-5 text-amber-700" />;
+    if (rank === 2) return <Medal className="h-5 w-5 text-slate-500" />;
+    if (rank === 3) return <Medal className="h-5 w-5 text-amber-600" />;
+    return <span className="text-sm font-semibold text-slate-500">{rank}</span>;
 }

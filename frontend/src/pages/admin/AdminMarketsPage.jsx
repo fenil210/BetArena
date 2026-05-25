@@ -9,10 +9,30 @@ import {
     useVoidMarket,
 } from '../../hooks/useApi';
 import {
-    Target, Clock, Lock, CheckCircle, XCircle, AlertTriangle,
-    Loader2, Trophy, ChevronDown,
+    Target,
+    Clock,
+    Lock,
+    CheckCircle,
+    XCircle,
+    AlertTriangle,
+    Trophy,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Badge, Button, EmptyState, LoadingRows, PageHeader, Panel, SelectInput, cx } from '../../components/ui';
+
+const transitionTargets = {
+    coming_soon: ['open'],
+    open: ['locked'],
+    locked: ['open'],
+};
+
+const statusIcons = {
+    coming_soon: Clock,
+    open: Target,
+    locked: Lock,
+    settled: CheckCircle,
+    voided: XCircle,
+};
 
 export default function AdminMarketsPage() {
     const { data: tournaments } = useTournaments();
@@ -22,99 +42,59 @@ export default function AdminMarketsPage() {
     const { data: eventMarkets, isLoading: loadingEM, refetch: refetchEM } = useEventMarkets(eventId);
     const { data: allMarkets, isLoading: loadingAll, refetch: refetchAll } = useAllTournamentMarkets(tournamentId);
 
-    // When event is selected, show only that event's markets
-    // When only tournament is selected, show ALL markets (tournament + all events)
     const markets = eventId ? eventMarkets : allMarkets;
     const isLoading = eventId ? loadingEM : loadingAll;
     const refetch = eventId ? refetchEM : refetchAll;
     const hasSelection = eventId || tournamentId;
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-                <Target className="w-6 h-6 text-accent-400" />
-                Manage Markets
-            </h1>
+        <div className="page-stack">
+            <PageHeader
+                icon={<Target className="h-6 w-6" />}
+                title="Manage markets"
+                description="Open, lock, settle, or void markets after selecting a tournament."
+            />
 
-            {/* Filters */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Panel className="grid gap-4 p-4 sm:grid-cols-2">
                 <div>
-                    <label className="block text-sm text-dark-400 mb-1">Tournament</label>
-                    <select
-                        value={tournamentId}
-                        onChange={(e) => { setTournamentId(e.target.value); setEventId(''); }}
-                        className="w-full px-4 py-2.5 rounded-xl bg-dark-800/80 border border-dark-600/40 text-white text-sm focus:outline-none focus:border-accent-500/50"
-                    >
+                    <label className="form-label">Tournament</label>
+                    <SelectInput value={tournamentId} onChange={(e) => { setTournamentId(e.target.value); setEventId(''); }}>
                         <option value="">Select tournament...</option>
-                        {tournaments?.map((t) => (
-                            <option key={t.id} value={t.id}>{t.name}</option>
+                        {tournaments?.map((tournament) => (
+                            <option key={tournament.id} value={tournament.id}>{tournament.name}</option>
                         ))}
-                    </select>
+                    </SelectInput>
                 </div>
 
                 {tournamentId && (
-                    <div className="animate-fade-in">
-                        <label className="block text-sm text-dark-400 mb-1">Event Filter (optional)</label>
-                        <select
-                            value={eventId}
-                            onChange={(e) => setEventId(e.target.value)}
-                            className="w-full px-4 py-2.5 rounded-xl bg-dark-800/80 border border-dark-600/40 text-white text-sm focus:outline-none focus:border-accent-500/50"
-                        >
-                            <option value="">All markets (tournament + all matches)</option>
-                            {events?.map((ev) => (
-                                <option key={ev.id} value={ev.id}>{ev.title}</option>
+                    <div>
+                        <label className="form-label">Event filter</label>
+                        <SelectInput value={eventId} onChange={(e) => setEventId(e.target.value)}>
+                            <option value="">All markets</option>
+                            {events?.map((event) => (
+                                <option key={event.id} value={event.id}>{event.title}</option>
                             ))}
-                        </select>
+                        </SelectInput>
                     </div>
                 )}
-            </div>
+            </Panel>
 
-            {/* Markets list */}
             {!hasSelection ? (
-                <div className="glass-card p-12 text-center">
-                    <Target className="w-12 h-12 text-dark-600 mx-auto mb-4" />
-                    <p className="text-dark-400">Select a tournament to see its markets</p>
-                </div>
+                <EmptyState icon={<Target className="h-6 w-6" />} title="Select a tournament" description="Choose a tournament to inspect its markets." />
             ) : isLoading ? (
-                <div className="space-y-3">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                        <div key={i} className="glass-card p-5 animate-pulse">
-                            <div className="h-5 bg-dark-700 rounded w-2/3 mb-2" />
-                            <div className="h-4 bg-dark-700 rounded w-1/3" />
-                        </div>
-                    ))}
-                </div>
+                <LoadingRows count={3} />
             ) : markets?.length === 0 ? (
-                <div className="glass-card p-12 text-center">
-                    <Target className="w-12 h-12 text-dark-600 mx-auto mb-4" />
-                    <p className="text-dark-400 text-lg">No markets found</p>
-                    <p className="text-dark-500 text-sm mt-1">Create one from the "Create Market" page.</p>
-                </div>
+                <EmptyState icon={<Target className="h-6 w-6" />} title="No markets found" description="Create one from the Create Market page." />
             ) : (
                 <div className="space-y-4">
-                    {markets.map((m) => (
-                        <MarketAdminCard key={m.id} market={m} onRefetch={refetch} />
+                    {markets.map((market) => (
+                        <MarketAdminCard key={market.id} market={market} onRefetch={refetch} />
                     ))}
                 </div>
             )}
         </div>
     );
 }
-
-/* ─── Status badge helpers ─── */
-const statusConfig = {
-    coming_soon: { icon: Clock, color: 'text-blue-400', bg: 'bg-blue-500/15', label: 'Coming Soon' },
-    open: { icon: Target, color: 'text-accent-400', bg: 'bg-accent-500/15', label: 'Open' },
-    locked: { icon: Lock, color: 'text-amber-400', bg: 'bg-amber-500/15', label: 'Locked' },
-    settled: { icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/15', label: 'Settled' },
-    voided: { icon: XCircle, color: 'text-dark-400', bg: 'bg-dark-500/15', label: 'Voided' },
-};
-
-const transitionTargets = {
-    coming_soon: ['open'],
-    open: ['locked'],
-    locked: ['open'],
-};
 
 function MarketAdminCard({ market, onRefetch }) {
     const updateStatus = useUpdateMarketStatus();
@@ -123,16 +103,16 @@ function MarketAdminCard({ market, onRefetch }) {
     const [showSettle, setShowSettle] = useState(false);
     const [winnerSelId, setWinnerSelId] = useState('');
 
-    const cfg = statusConfig[market.status] || statusConfig.coming_soon;
-    const Icon = cfg.icon;
+    const Icon = statusIcons[market.status] || Clock;
     const nextStates = transitionTargets[market.status] || [];
     const canSettle = market.status === 'locked';
     const canVoid = ['open', 'locked'].includes(market.status);
+    const isTerminal = ['settled', 'voided'].includes(market.status);
 
     const handleStatusChange = async (newStatus) => {
         try {
             await updateStatus.mutateAsync({ marketId: market.id, status: newStatus });
-            toast.success(`Market → ${newStatus}`);
+            toast.success(`Market changed to ${newStatus}`);
             onRefetch();
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Failed');
@@ -140,10 +120,13 @@ function MarketAdminCard({ market, onRefetch }) {
     };
 
     const handleSettle = async () => {
-        if (!winnerSelId) { toast.error('Pick the winning selection'); return; }
+        if (!winnerSelId) {
+            toast.error('Pick the winning selection');
+            return;
+        }
         try {
             await settleMarket.mutateAsync({ marketId: market.id, winning_selection_id: winnerSelId });
-            toast.success('Market settled!');
+            toast.success('Market settled');
             setShowSettle(false);
             onRefetch();
         } catch (err) {
@@ -155,7 +138,7 @@ function MarketAdminCard({ market, onRefetch }) {
         if (!confirm('Void this market? All stakes will be refunded.')) return;
         try {
             await voidMarket.mutateAsync(market.id);
-            toast.success('Market voided — all stakes refunded');
+            toast.success('Market voided, stakes refunded');
             onRefetch();
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Failed');
@@ -163,104 +146,90 @@ function MarketAdminCard({ market, onRefetch }) {
     };
 
     return (
-        <div className="glass-card p-5 space-y-3">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-white text-lg">{market.question}</h3>
-                    <div className="flex flex-wrap items-center gap-2 mt-1 text-sm">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.color}`}>
-                            <Icon className="w-3 h-3" />
-                            {cfg.label}
-                        </span>
-                        <span className="text-dark-500">{market.market_type}</span>
+        <Panel className="overflow-hidden">
+            <div className="border-b border-slate-200 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                        <h3 className="text-lg font-semibold text-slate-950">{market.question}</h3>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <Badge status={market.status}>
+                                <Icon className="h-3 w-3" />
+                                {market.status.replace('_', ' ')}
+                            </Badge>
+                            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{market.market_type}</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Selections / Odds */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                {market.selections?.map((sel) => (
-                    <div key={sel.id} className={`px-3 py-2 rounded-xl border text-sm text-center ${sel.is_winner === true ? 'border-green-500/40 bg-green-500/10 text-green-400' :
-                            sel.is_winner === false ? 'border-dark-600/30 bg-dark-800/50 text-dark-500 line-through' :
-                                'border-dark-600/30 bg-dark-800/50 text-white'
-                        }`}>
-                        <div className="text-xs text-dark-400 truncate">{sel.label}</div>
-                        <div className="font-bold mt-0.5">{parseFloat(sel.odds).toFixed(2)}</div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Actions — only for non-terminal states */}
-            {!['settled', 'voided'].includes(market.status) && (
-                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-dark-700/50">
-                    {/* Status transitions */}
-                    {nextStates.map((ns) => (
-                        <button
-                            key={ns}
-                            onClick={() => handleStatusChange(ns)}
-                            disabled={updateStatus.isPending}
-                            className={`btn-secondary text-xs flex items-center gap-1.5 ${ns === 'open' ? 'hover:border-accent-500/50 hover:text-accent-400' :
-                                    ns === 'locked' ? 'hover:border-amber-500/50 hover:text-amber-400' : ''
-                                }`}
+            <div className="p-4">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                    {market.selections?.map((selection) => (
+                        <div
+                            key={selection.id}
+                            className={cx(
+                                'rounded-md border px-3 py-2 text-sm',
+                                selection.is_winner === true
+                                    ? 'border-teal-300 bg-teal-50 text-teal-900'
+                                    : selection.is_winner === false
+                                        ? 'border-slate-200 bg-slate-50 text-slate-400 line-through'
+                                        : 'border-slate-200 bg-white text-slate-800'
+                            )}
                         >
-                            {updateStatus.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                            {ns === 'open' ? '▶ Open' : ns === 'locked' ? '🔒 Lock' : ns}
-                        </button>
+                            <p className="truncate text-xs font-medium text-slate-500">{selection.label}</p>
+                            <p className="mt-1 font-semibold">{parseFloat(selection.odds).toFixed(2)}</p>
+                        </div>
                     ))}
-
-                    {/* Settle */}
-                    {canSettle && (
-                        <button
-                            onClick={() => setShowSettle(!showSettle)}
-                            className="btn-secondary text-xs flex items-center gap-1.5 hover:border-green-500/50 hover:text-green-400"
-                        >
-                            <Trophy className="w-3 h-3" />
-                            Settle
-                        </button>
-                    )}
-
-                    {/* Void */}
-                    {canVoid && (
-                        <button
-                            onClick={handleVoid}
-                            disabled={voidMarket.isPending}
-                            className="btn-secondary text-xs flex items-center gap-1.5 hover:border-loss-500/50 hover:text-loss-400"
-                        >
-                            {voidMarket.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <AlertTriangle className="w-3 h-3" />}
-                            Void
-                        </button>
-                    )}
                 </div>
-            )}
 
-            {/* Settle dropdown */}
-            {showSettle && (
-                <div className="p-4 bg-dark-800/60 rounded-xl space-y-3 animate-fade-in">
-                    <p className="text-sm text-dark-300 font-medium">Select the winning outcome:</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {market.selections?.map((sel) => (
-                            <button
-                                key={sel.id}
-                                onClick={() => setWinnerSelId(sel.id)}
-                                className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${winnerSelId === sel.id
-                                        ? 'border-green-500 bg-green-500/15 text-green-400'
-                                        : 'border-dark-600/40 bg-dark-700/40 text-white hover:border-dark-500'
-                                    }`}
-                            >
-                                {sel.label}
-                            </button>
+                {!isTerminal && (
+                    <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-4">
+                        {nextStates.map((state) => (
+                            <Button key={state} onClick={() => handleStatusChange(state)} loading={updateStatus.isPending} className="text-xs">
+                                {state === 'open' ? 'Open' : state === 'locked' ? 'Lock' : state}
+                            </Button>
                         ))}
+                        {canSettle && (
+                            <Button onClick={() => setShowSettle(!showSettle)} className="text-xs">
+                                <Trophy className="h-3.5 w-3.5" />
+                                Settle
+                            </Button>
+                        )}
+                        {canVoid && (
+                            <Button onClick={handleVoid} loading={voidMarket.isPending} className="text-xs">
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                                Void
+                            </Button>
+                        )}
                     </div>
-                    <div className="flex gap-2">
-                        <button onClick={handleSettle} disabled={settleMarket.isPending} className="btn-primary text-sm flex items-center gap-2">
-                            {settleMarket.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                            Confirm Settlement
-                        </button>
-                        <button onClick={() => setShowSettle(false)} className="btn-secondary text-sm">Cancel</button>
+                )}
+
+                {showSettle && (
+                    <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-sm font-semibold text-slate-800">Select the winning outcome</p>
+                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            {market.selections?.map((selection) => (
+                                <button
+                                    key={selection.id}
+                                    onClick={() => setWinnerSelId(selection.id)}
+                                    className={cx(
+                                        'rounded-md border px-3 py-2 text-sm font-semibold transition',
+                                        winnerSelId === selection.id
+                                            ? 'border-teal-700 bg-teal-50 text-teal-900'
+                                            : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                                    )}
+                                >
+                                    {selection.label}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="mt-3 flex gap-2">
+                            <Button onClick={handleSettle} variant="primary" loading={settleMarket.isPending}>Confirm settlement</Button>
+                            <Button onClick={() => setShowSettle(false)}>Cancel</Button>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )}
+            </div>
+        </Panel>
     );
 }

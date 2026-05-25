@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { usePlaceBet } from '../hooks/useApi';
 import { useAuth } from '../hooks/useAuth';
-import { X, Coins, Loader2, CheckCircle } from 'lucide-react';
+import { X, Coins, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Button, IconButton, TextInput, cx } from './ui';
 
 export default function BetSlip({ market, selection, onClose }) {
     const { user, refreshUser } = useAuth();
@@ -12,8 +13,8 @@ export default function BetSlip({ market, selection, onClose }) {
     const stakeNum = parseInt(stake) || 0;
     const odds = parseFloat(selection.odds);
     const payout = Math.floor(stakeNum * odds);
+    const profit = payout - stakeNum;
     const canPlace = stakeNum > 0 && stakeNum <= (user?.balance || 0);
-
     const quickStakes = [50, 100, 250, 500];
 
     const handlePlace = async () => {
@@ -24,135 +25,114 @@ export default function BetSlip({ market, selection, onClose }) {
                 selection_id: selection.id,
                 stake: stakeNum,
             });
-            toast.success(`Bet confirmed! ${stakeNum} coins on "${selection.label}"`);
+            toast.success(`Bet confirmed: ${stakeNum} coins on ${selection.label}`);
             await refreshUser();
             onClose();
         } catch (err) {
-            const msg = err.response?.data?.detail || 'Failed to place bet';
-            toast.error(msg);
+            toast.error(err.response?.data?.detail || 'Failed to place bet');
         }
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                onClick={onClose}
-            />
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 p-0 sm:items-center sm:p-4">
+            <button className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Close bet slip" />
 
-            {/* Slip card */}
-            <div className="relative w-full sm:max-w-md bg-dark-800 border border-dark-600/50 rounded-t-2xl sm:rounded-2xl animate-slide-up shadow-2xl">
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-dark-700/50">
-                    <h3 className="font-semibold text-white">Place Bet</h3>
-                    <button
-                        onClick={onClose}
-                        className="p-1 rounded-lg hover:bg-dark-700/60 transition-colors"
-                    >
-                        <X className="w-5 h-5 text-dark-400" />
-                    </button>
+            <div className="relative w-full max-w-md rounded-t-lg border border-slate-200 bg-white shadow-2xl sm:rounded-lg">
+                <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-teal-800">Bet slip</p>
+                        <h3 className="mt-1 text-lg font-semibold text-slate-950">Confirm selection</h3>
+                    </div>
+                    <IconButton label="Close bet slip" onClick={onClose}>
+                        <X className="h-4 w-4" />
+                    </IconButton>
                 </div>
 
-                <div className="p-4 space-y-4">
-                    {/* Market + Selection */}
-                    <div className="bg-dark-700/40 rounded-xl p-4 space-y-2">
-                        <p className="text-sm text-dark-400">{market.question}</p>
-                        <div className="flex items-center justify-between">
-                            <span className="font-semibold text-white">{selection.label}</span>
-                            <span className="text-lg font-bold text-accent-400">
+                <div className="space-y-5 p-5">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-sm leading-5 text-slate-600">{market.question}</p>
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                            <p className="font-semibold text-slate-950">{selection.label}</p>
+                            <span className="rounded-md border border-teal-200 bg-white px-2.5 py-1 text-lg font-semibold text-teal-900">
                                 {odds.toFixed(2)}
                             </span>
                         </div>
                     </div>
 
-                    {/* Stake input */}
                     <div>
-                        <label className="block text-sm text-dark-400 mb-2">
-                            Stake (Balance: {user?.balance?.toLocaleString()} coins)
-                        </label>
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                            <label className="text-sm font-medium text-slate-700">Stake</label>
+                            <span className="text-xs font-medium text-slate-500">
+                                Balance: {user?.balance?.toLocaleString()} coins
+                            </span>
+                        </div>
                         <div className="relative">
-                            <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gold-400" />
-                            <input
+                            <Coins className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-amber-700" />
+                            <TextInput
                                 type="number"
                                 value={stake}
                                 onChange={(e) => setStake(e.target.value)}
                                 placeholder="Enter stake"
                                 min="1"
                                 max={user?.balance}
-                                className="w-full pl-10 pr-4 py-3 rounded-xl bg-dark-700/60 border border-dark-500/40
-                         text-white placeholder-dark-400 focus:outline-none focus:border-accent-500/50
-                         focus:ring-1 focus:ring-accent-500/20 transition-colors text-lg font-semibold"
+                                className="pl-10 text-base font-semibold"
                                 autoFocus
                             />
                         </div>
 
-                        {/* Quick stake buttons */}
-                        <div className="flex gap-2 mt-2">
-                            {quickStakes.map((qs) => (
+                        <div className="mt-2 grid grid-cols-5 gap-2">
+                            {quickStakes.map((quickStake) => (
                                 <button
-                                    key={qs}
-                                    onClick={() => setStake(String(Math.min(qs, user?.balance || 0)))}
-                                    className="flex-1 py-2 rounded-lg bg-dark-700/50 border border-dark-600/30
-                           text-sm font-medium text-dark-300 hover:bg-dark-600/50
-                           hover:text-white transition-colors"
+                                    key={quickStake}
+                                    onClick={() => setStake(String(Math.min(quickStake, user?.balance || 0)))}
+                                    className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                                 >
-                                    {qs}
+                                    {quickStake}
                                 </button>
                             ))}
                             <button
                                 onClick={() => setStake(String(user?.balance || 0))}
-                                className="flex-1 py-2 rounded-lg bg-gold-500/10 border border-gold-500/20
-                         text-sm font-medium text-gold-400 hover:bg-gold-500/20
-                         transition-colors"
+                                className="rounded-md border border-amber-200 bg-amber-50 px-2 py-2 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
                             >
-                                MAX
+                                Max
                             </button>
                         </div>
                     </div>
 
-                    {/* Payout preview */}
                     {stakeNum > 0 && (
-                        <div className="bg-accent-500/5 border border-accent-500/20 rounded-xl p-4 animate-fade-in">
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-dark-400">Potential Payout</span>
-                                <span className="text-xl font-bold text-accent-400 flex items-center gap-1">
-                                    <Coins className="w-5 h-5 text-gold-400" />
+                        <div className="rounded-lg border border-teal-200 bg-teal-50 p-4">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-teal-900">Potential payout</span>
+                                <span className="flex items-center gap-1 text-xl font-semibold text-teal-950">
+                                    <Coins className="h-5 w-5 text-amber-700" />
                                     {payout.toLocaleString()}
                                 </span>
                             </div>
-                            <div className="flex items-center justify-between text-xs text-dark-500 mt-1">
-                                <span>Profit</span>
-                                <span className="text-accent-400">+{(payout - stakeNum).toLocaleString()}</span>
+                            <div className="mt-1 flex items-center justify-between text-xs font-medium text-teal-800">
+                                <span>Projected profit</span>
+                                <span className={cx(profit >= 0 ? 'text-teal-900' : 'text-red-700')}>
+                                    {profit >= 0 ? '+' : ''}{profit.toLocaleString()}
+                                </span>
                             </div>
                         </div>
                     )}
 
-                    {/* Insufficient balance warning */}
                     {stakeNum > (user?.balance || 0) && (
-                        <p className="text-sm text-loss-400 text-center">
-                            Insufficient balance!
+                        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-center text-sm font-medium text-red-700">
+                            Insufficient balance
                         </p>
                     )}
 
-                    {/* Place bet button */}
-                    <button
+                    <Button
+                        variant="primary"
                         onClick={handlePlace}
-                        disabled={!canPlace || placeBet.isPending}
-                        className="btn-primary w-full flex items-center justify-center gap-2 py-3"
+                        disabled={!canPlace}
+                        loading={placeBet.isPending}
+                        className="w-full py-3"
                     >
-                        {placeBet.isPending ? (
-                            <>
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                                Placing bet...
-                            </>
-                        ) : (
-                            <>
-                                <CheckCircle className="w-5 h-5" />
-                                Place Bet — {stakeNum > 0 ? `${stakeNum} coins` : 'Enter stake'}
-                            </>
-                        )}
-                    </button>
+                        <CheckCircle className="h-5 w-5" />
+                        {stakeNum > 0 ? `Place bet: ${stakeNum} coins` : 'Enter stake to place bet'}
+                    </Button>
                 </div>
             </div>
         </div>

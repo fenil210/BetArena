@@ -4,8 +4,9 @@ import {
     useTournamentEvents,
     useCreateMarket,
 } from '../../hooks/useApi';
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Button, FormField, PageHeader, Panel, SelectInput, TextInput } from '../../components/ui';
 
 export default function AdminMarketCreatePage() {
     const { data: tournaments } = useTournaments();
@@ -24,20 +25,20 @@ export default function AdminMarketCreatePage() {
 
     const addSelection = () => setSelections([...selections, { label: '', odds: '' }]);
 
-    const updateSelection = (i, field, val) => {
+    const updateSelection = (index, field, value) => {
         const updated = [...selections];
-        updated[i][field] = val;
+        updated[index][field] = value;
         setSelections(updated);
     };
 
-    const removeSelection = (i) => {
+    const removeSelection = (index) => {
         if (selections.length <= 2) return;
-        setSelections(selections.filter((_, idx) => idx !== i));
+        setSelections(selections.filter((_, currentIndex) => currentIndex !== index));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!question || selections.some((s) => !s.label || !s.odds)) {
+        if (!question || selections.some((selection) => !selection.label || !selection.odds)) {
             toast.error('Fill in all fields');
             return;
         }
@@ -46,165 +47,124 @@ export default function AdminMarketCreatePage() {
             question,
             market_type: marketType,
             status: marketStatus,
-            selections: selections.map((s) => ({
-                label: s.label,
-                odds: parseFloat(s.odds),
+            selections: selections.map((selection) => ({
+                label: selection.label,
+                odds: parseFloat(selection.odds),
             })),
         };
-        // Only include IDs if they are actually selected (not empty string)
         if (eventId) payload.event_id = eventId;
         if (tournamentId) payload.tournament_id = tournamentId;
 
         try {
             await createMarket.mutateAsync(payload);
-            toast.success('Market created!');
+            toast.success('Market created');
             setQuestion('');
             setSelections([{ label: '', odds: '' }, { label: '', odds: '' }]);
         } catch (err) {
             const detail = err.response?.data?.detail;
             const msg = Array.isArray(detail)
-                ? detail.map(d => d.msg).join(', ')
+                ? detail.map((item) => item.msg).join(', ')
                 : detail || 'Failed to create market';
             toast.error(msg);
         }
     };
 
     return (
-        <div className="space-y-6 animate-fade-in max-w-2xl">
-            <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-                <PlusCircle className="w-6 h-6 text-accent-400" />
-                Create Market
-            </h1>
+        <div className="page-stack max-w-3xl">
+            <PageHeader
+                icon={<PlusCircle className="h-6 w-6" />}
+                title="Create market"
+                description="Configure the market context, question, opening state, and odds."
+            />
 
-            <form onSubmit={handleSubmit} className="glass-card p-6 space-y-5">
-                {/* Tournament selection */}
-                <div>
-                    <label className="block text-sm text-dark-400 mb-1">Tournament</label>
-                    <select
-                        value={tournamentId}
-                        onChange={(e) => { setTournamentId(e.target.value); setEventId(''); }}
-                        className="w-full px-4 py-2.5 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50"
-                    >
-                        <option value="">Select tournament...</option>
-                        {tournaments?.map((t) => (
-                            <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                    </select>
-                </div>
-
-                {/* Event selection (optional) */}
-                {tournamentId && (
-                    <div className="animate-fade-in">
-                        <label className="block text-sm text-dark-400 mb-1">Event (optional — for match-level markets)</label>
-                        <select
-                            value={eventId}
-                            onChange={(e) => setEventId(e.target.value)}
-                            className="w-full px-4 py-2.5 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50"
-                        >
-                            <option value="">Tournament-level market (no event)</option>
-                            {events?.map((ev) => (
-                                <option key={ev.id} value={ev.id}>{ev.title}</option>
+            <Panel as="form" onSubmit={handleSubmit} className="space-y-6 p-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField label="Tournament">
+                        <SelectInput value={tournamentId} onChange={(e) => { setTournamentId(e.target.value); setEventId(''); }}>
+                            <option value="">Select tournament...</option>
+                            {tournaments?.map((tournament) => (
+                                <option key={tournament.id} value={tournament.id}>{tournament.name}</option>
                             ))}
-                        </select>
+                        </SelectInput>
+                    </FormField>
+
+                    {tournamentId && (
+                        <FormField label="Event" hint="Leave empty for a tournament-level market.">
+                            <SelectInput value={eventId} onChange={(e) => setEventId(e.target.value)}>
+                                <option value="">Tournament-level market</option>
+                                {events?.map((event) => (
+                                    <option key={event.id} value={event.id}>{event.title}</option>
+                                ))}
+                            </SelectInput>
+                        </FormField>
+                    )}
+                </div>
+
+                <FormField label="Question">
+                    <TextInput value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Who will win the match?" />
+                </FormField>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField label="Market type">
+                        <SelectInput value={marketType} onChange={(e) => setMarketType(e.target.value)}>
+                            <option value="match_winner">Match Winner</option>
+                            <option value="over_under">Over/Under</option>
+                            <option value="both_teams_score">Both Teams Score</option>
+                            <option value="first_scorer">First Scorer</option>
+                            <option value="custom">Custom / Freeform</option>
+                        </SelectInput>
+                    </FormField>
+                    <FormField label="Initial status">
+                        <SelectInput value={marketStatus} onChange={(e) => setMarketStatus(e.target.value)}>
+                            <option value="coming_soon">Coming Soon</option>
+                            <option value="open">Open</option>
+                            <option value="locked">Locked</option>
+                        </SelectInput>
+                    </FormField>
+                </div>
+
+                <div>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                        <label className="form-label mb-0">Selections and odds</label>
+                        <button type="button" onClick={addSelection} className="text-sm font-semibold text-teal-800 hover:text-teal-950">
+                            Add selection
+                        </button>
                     </div>
-                )}
-
-                {/* Market question */}
-                <div>
-                    <label className="block text-sm text-dark-400 mb-1">Question</label>
-                    <input
-                        value={question}
-                        onChange={(e) => setQuestion(e.target.value)}
-                        placeholder="e.g. Who will win the match?"
-                        className="w-full px-4 py-2.5 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50 transition-colors"
-                    />
-                </div>
-
-                {/* Market type */}
-                <div>
-                    <label className="block text-sm text-dark-400 mb-1">Market Type</label>
-                    <select
-                        value={marketType}
-                        onChange={(e) => setMarketType(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50"
-                    >
-                        <option value="match_winner">Match Winner</option>
-                        <option value="over_under">Over/Under</option>
-                        <option value="both_teams_score">Both Teams Score</option>
-                        <option value="first_scorer">First Scorer</option>
-                        <option value="custom">Custom / Freeform</option>
-                    </select>
-                </div>
-
-                {/* Initial Status */}
-                <div>
-                    <label className="block text-sm text-dark-400 mb-1">Initial Status</label>
-                    <select
-                        value={marketStatus}
-                        onChange={(e) => setMarketStatus(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50"
-                    >
-                        <option value="coming_soon">Coming Soon</option>
-                        <option value="open">Open (accepting bets now)</option>
-                        <option value="locked">Locked</option>
-                    </select>
-                </div>
-
-                {/* Selections */}
-                <div>
-                    <label className="block text-sm text-dark-400 mb-2">Selections & Odds</label>
                     <div className="space-y-2">
-                        {selections.map((sel, i) => (
-                            <div key={i} className="flex gap-2 items-center">
-                                <input
-                                    value={sel.label}
-                                    onChange={(e) => updateSelection(i, 'label', e.target.value)}
-                                    placeholder={`Selection ${i + 1}`}
-                                    className="flex-1 px-4 py-2.5 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50 transition-colors"
+                        {selections.map((selection, index) => (
+                            <div key={index} className="grid grid-cols-[1fr_110px_auto] gap-2">
+                                <TextInput
+                                    value={selection.label}
+                                    onChange={(e) => updateSelection(index, 'label', e.target.value)}
+                                    placeholder={`Selection ${index + 1}`}
                                 />
-                                <input
-                                    value={sel.odds}
-                                    onChange={(e) => updateSelection(i, 'odds', e.target.value)}
+                                <TextInput
+                                    value={selection.odds}
+                                    onChange={(e) => updateSelection(index, 'odds', e.target.value)}
                                     placeholder="Odds"
                                     type="number"
                                     step="0.01"
                                     min="1.01"
-                                    className="w-24 px-4 py-2.5 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50 transition-colors"
                                 />
-                                {selections.length > 2 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => removeSelection(i)}
-                                        className="p-2 text-loss-400 hover:bg-loss-500/10 rounded-lg transition-colors"
-                                    >
-                                        ✕
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => removeSelection(index)}
+                                    disabled={selections.length <= 2}
+                                    className="icon-button text-red-700 disabled:text-slate-300"
+                                    aria-label="Remove selection"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
                             </div>
                         ))}
                     </div>
-                    <button
-                        type="button"
-                        onClick={addSelection}
-                        className="mt-2 text-sm text-accent-400 hover:text-accent-300 transition-colors"
-                    >
-                        + Add Selection
-                    </button>
                 </div>
 
-                {/* Submit */}
-                <button
-                    type="submit"
-                    disabled={createMarket.isPending}
-                    className="btn-primary w-full flex items-center justify-center gap-2"
-                >
-                    {createMarket.isPending ? (
-                        <><Loader2 className="w-5 h-5 animate-spin" /> Creating...</>
-                    ) : (
-                        <><PlusCircle className="w-5 h-5" /> Create Market</>
-                    )}
-                </button>
-            </form>
+                <Button type="submit" variant="primary" loading={createMarket.isPending} className="w-full py-3">
+                    <PlusCircle className="h-5 w-5" />
+                    Create market
+                </Button>
+            </Panel>
         </div>
     );
 }

@@ -9,6 +9,7 @@ import {
 import client from '../../api/client';
 import { Trophy, RefreshCw, Plus, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Badge, Button, FormField, LoadingRows, PageHeader, Panel, SelectInput, TextInput } from '../../components/ui';
 
 export default function AdminTournamentsPage() {
     const { data: tournaments, isLoading, refetch } = useTournaments();
@@ -28,7 +29,7 @@ export default function AdminTournamentsPage() {
                 name,
                 competition_id: parseInt(compId),
             });
-            toast.success('Tournament created!');
+            toast.success('Tournament created');
             setShowCreate(false);
             setName('');
             setCompId('');
@@ -43,85 +44,63 @@ export default function AdminTournamentsPage() {
     const handleSyncComps = async () => {
         try {
             const data = await syncComps.mutateAsync();
-            toast.success(`Synced! Created: ${data.created}, Updated: ${data.updated}`);
+            toast.success(`Synced: ${data.created} created, ${data.updated} updated`);
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Sync failed');
         }
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-                    <Trophy className="w-6 h-6 text-accent-400" />
-                    Tournaments
-                </h1>
-                <div className="flex gap-2">
-                    <button onClick={handleSyncComps} disabled={syncComps.isPending} className="btn-secondary flex items-center gap-2 text-sm">
-                        {syncComps.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                        Sync Competitions
-                    </button>
-                    <button onClick={() => setShowCreate(!showCreate)} className="btn-primary flex items-center gap-2 text-sm">
-                        <Plus className="w-4 h-4" />
-                        Create
-                    </button>
-                </div>
-            </div>
+        <div className="page-stack">
+            <PageHeader
+                icon={<Trophy className="h-6 w-6" />}
+                title="Tournaments"
+                description="Create competitions and keep teams and fixtures synchronized."
+                actions={(
+                    <>
+                        <Button onClick={handleSyncComps} loading={syncComps.isPending}>
+                            <RefreshCw className="h-4 w-4" />
+                            Sync competitions
+                        </Button>
+                        <Button variant="primary" onClick={() => setShowCreate(!showCreate)}>
+                            <Plus className="h-4 w-4" />
+                            Create
+                        </Button>
+                    </>
+                )}
+            />
 
-            {/* Create form */}
             {showCreate && (
-                <form onSubmit={handleCreate} className="glass-card p-5 space-y-4 animate-fade-in">
-                    <h3 className="font-semibold text-white">New Tournament</h3>
-                    <div>
-                        <label className="block text-sm text-dark-400 mb-1">Tournament Name</label>
-                        <input
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="e.g. FIFA World Cup 2026"
-                            className="w-full px-4 py-2.5 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50 transition-colors"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm text-dark-400 mb-1">Competition</label>
-                        <select
-                            value={compId}
-                            onChange={(e) => setCompId(e.target.value)}
-                            className="w-full px-4 py-2.5 rounded-xl bg-dark-700/60 border border-dark-500/40 text-white focus:outline-none focus:border-accent-500/50"
-                        >
-                            <option value="">Select competition...</option>
-                            {competitions?.map((c) => (
-                                <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
-                            ))}
-                        </select>
+                <Panel as="form" onSubmit={handleCreate} className="space-y-4 p-5">
+                    <h3 className="text-base font-semibold text-slate-950">New tournament</h3>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <FormField label="Tournament name">
+                            <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="FIFA World Cup 2026" />
+                        </FormField>
+                        <FormField label="Competition">
+                            <SelectInput value={compId} onChange={(e) => setCompId(e.target.value)}>
+                                <option value="">Select competition...</option>
+                                {competitions?.map((competition) => (
+                                    <option key={competition.id} value={competition.id}>{competition.name} ({competition.code})</option>
+                                ))}
+                            </SelectInput>
+                        </FormField>
                     </div>
                     <div className="flex gap-2">
-                        <button type="submit" disabled={creating} className="btn-primary flex items-center gap-2">
-                            {creating && <Loader2 className="w-4 h-4 animate-spin" />}
-                            Create Tournament
-                        </button>
-                        <button type="button" onClick={() => setShowCreate(false)} className="btn-secondary">
-                            Cancel
-                        </button>
+                        <Button type="submit" variant="primary" loading={creating}>Create tournament</Button>
+                        <Button type="button" onClick={() => setShowCreate(false)}>Cancel</Button>
                     </div>
-                </form>
+                </Panel>
             )}
 
-            {/* Tournaments list */}
             {isLoading ? (
-                <div className="space-y-3">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                        <div key={i} className="glass-card p-5 animate-pulse">
-                            <div className="h-5 bg-dark-700 rounded w-1/2 mb-2" />
-                            <div className="h-4 bg-dark-700 rounded w-1/3" />
-                        </div>
-                    ))}
-                </div>
+                <LoadingRows count={3} />
             ) : (
-                <div className="space-y-3">
-                    {tournaments?.map((t) => (
-                        <TournamentRow key={t.id} tournament={t} onRefetch={refetch} />
+                <Panel className="divide-y divide-slate-200 overflow-hidden">
+                    {tournaments?.map((tournament) => (
+                        <TournamentRow key={tournament.id} tournament={tournament} onRefetch={refetch} />
                     ))}
-                </div>
+                </Panel>
             )}
         </div>
     );
@@ -134,9 +113,9 @@ function TournamentRow({ tournament, onRefetch }) {
 
     const handleSync = async (type) => {
         try {
-            const fn = type === 'teams' ? syncTeams : syncFixtures;
-            const data = await fn.mutateAsync();
-            toast.success(`${type}: Created ${data.created}, Updated ${data.updated}`);
+            const action = type === 'teams' ? syncTeams : syncFixtures;
+            const data = await action.mutateAsync();
+            toast.success(`${type}: ${data.created} created, ${data.updated} updated`);
         } catch (err) {
             toast.error(err.response?.data?.detail || `${type} sync failed`);
         }
@@ -146,7 +125,7 @@ function TournamentRow({ tournament, onRefetch }) {
         setUpdatingStatus(true);
         try {
             await client.patch(`/admin/tournaments/${tournament.id}`, { status: newStatus });
-            toast.success(`Status → ${newStatus}`);
+            toast.success(`Status changed to ${newStatus}`);
             onRefetch();
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Failed');
@@ -156,45 +135,34 @@ function TournamentRow({ tournament, onRefetch }) {
     };
 
     return (
-        <div className="glass-card p-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                    <h3 className="font-semibold text-white">{tournament.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                        <span className={`badge badge-${tournament.status === 'active' ? 'open' : tournament.status === 'upcoming' ? 'coming-soon' : 'settled'}`}>
-                            {tournament.status}
-                        </span>
-                        <span className="text-xs text-dark-500">ID: {tournament.competition_id}</span>
-                    </div>
+        <div className="grid gap-4 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+                <h3 className="font-semibold text-slate-950">{tournament.name}</h3>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Badge status={tournament.status} />
+                    <span className="text-xs font-medium text-slate-500">Competition ID {tournament.competition_id}</span>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    <button
-                        onClick={() => handleSync('teams')}
-                        disabled={syncTeams.isPending}
-                        className="btn-secondary text-xs flex items-center gap-1"
-                    >
-                        {syncTeams.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                        Sync Teams
-                    </button>
-                    <button
-                        onClick={() => handleSync('fixtures')}
-                        disabled={syncFixtures.isPending}
-                        className="btn-secondary text-xs flex items-center gap-1"
-                    >
-                        {syncFixtures.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                        Sync Fixtures
-                    </button>
-                    <select
-                        value={tournament.status}
-                        onChange={(e) => handleStatusChange(e.target.value)}
-                        disabled={updatingStatus}
-                        className="px-3 py-1.5 rounded-lg bg-dark-700/60 border border-dark-500/40 text-xs text-white focus:outline-none"
-                    >
-                        <option value="upcoming">Upcoming</option>
-                        <option value="active">Active</option>
-                        <option value="completed">Completed</option>
-                    </select>
-                </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+                <Button onClick={() => handleSync('teams')} loading={syncTeams.isPending} className="text-xs">
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Sync teams
+                </Button>
+                <Button onClick={() => handleSync('fixtures')} loading={syncFixtures.isPending} className="text-xs">
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Sync fixtures
+                </Button>
+                <SelectInput
+                    value={tournament.status}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    disabled={updatingStatus}
+                    className="w-36 py-1.5 text-xs"
+                >
+                    <option value="upcoming">Upcoming</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                </SelectInput>
+                {updatingStatus && <Loader2 className="h-4 w-4 animate-spin text-slate-500" />}
             </div>
         </div>
     );

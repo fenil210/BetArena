@@ -4,10 +4,11 @@ import { useTournament, useTournamentEvents, useTournamentMarkets } from '../hoo
 import MarketCard from '../components/MarketCard';
 import { Trophy, Calendar, ArrowRight, Filter } from 'lucide-react';
 import { formatDateTime } from '../utils/formatDate';
+import { Badge, EmptyState, LoadingRows, PageHeader, Panel, SelectInput } from '../components/ui';
 
 const STATUS_OPTIONS = [
-    { value: '', label: 'Active Matches (Upcoming + Live)' },
-    { value: 'all', label: 'All Matches' },
+    { value: '', label: 'Active matches' },
+    { value: 'all', label: 'All matches' },
     { value: 'upcoming', label: 'Upcoming' },
     { value: 'live', label: 'Live' },
     { value: 'completed', label: 'Completed' },
@@ -16,155 +17,103 @@ const STATUS_OPTIONS = [
 
 export default function TournamentDetailPage() {
     const { id } = useParams();
-    const [statusFilter, setStatusFilter] = useState(''); // Default: active (upcoming + live)
-    
+    const [statusFilter, setStatusFilter] = useState('');
+
     const { data: tournament, isLoading: loadingT } = useTournament(id);
-    // statusFilter 'all' means no filter (show all), empty string means default (upcoming+live)
     const eventsQueryStatus = statusFilter === 'all' ? null : statusFilter;
     const { data: events, isLoading: loadingE } = useTournamentEvents(id, eventsQueryStatus);
-    const { data: markets, isLoading: loadingM } = useTournamentMarkets(id);
+    const { data: markets } = useTournamentMarkets(id);
 
     if (loadingT) {
-        return (
-            <div className="space-y-4 animate-pulse">
-                <div className="h-8 bg-dark-700 rounded w-1/2" />
-                <div className="h-4 bg-dark-700 rounded w-1/3" />
-            </div>
-        );
+        return <LoadingRows count={2} />;
     }
 
     if (!tournament) {
-        return (
-            <div className="glass-card p-12 text-center">
-                <p className="text-dark-400">Tournament not found</p>
-            </div>
-        );
+        return <EmptyState title="Tournament not found" description="The requested tournament could not be loaded." />;
     }
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            {/* Header */}
-            <div className="glass-card p-6">
-                <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent-500 to-teal-400 flex items-center justify-center shrink-0">
-                        <Trophy className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-white">{tournament.name}</h1>
-                        <div className="flex items-center gap-3 mt-2">
-                            <span className={`badge badge-${tournament.status === 'active' ? 'open' : tournament.status === 'upcoming' ? 'coming-soon' : 'settled'}`}>
-                                {tournament.status}
-                            </span>
-                            <span className="text-sm text-dark-400">
-                                Competition ID: {tournament.competition_id}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div className="page-stack">
+            <Panel className="p-5 sm:p-6">
+                <PageHeader
+                    icon={<Trophy className="h-6 w-6" />}
+                    eyebrow={`Competition ${tournament.competition_id}`}
+                    title={tournament.name}
+                    description="Tournament markets and match-level events for this competition."
+                    actions={<Badge status={tournament.status} />}
+                />
+            </Panel>
 
-            {/* Tournament-level markets */}
             {markets && markets.length > 0 && (
-                <div className="space-y-4">
-                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                        <Trophy className="w-5 h-5 text-gold-400" />
-                        Tournament Markets
-                    </h2>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {markets.map((m) => (
-                            <MarketCard key={m.id} market={m} />
+                <section className="space-y-3">
+                    <div className="flex items-center gap-2">
+                        <Trophy className="h-5 w-5 text-teal-800" />
+                        <h2 className="text-base font-semibold text-slate-950">Tournament markets</h2>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        {markets.map((market) => (
+                            <MarketCard key={market.id} market={market} />
                         ))}
                     </div>
-                </div>
+                </section>
             )}
 
-            {/* Events / Matches */}
-            <div className="space-y-4">
-                {/* Section Header with Filter */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-accent-400" />
-                        Matches & Events
-                    </h2>
-                    
-                    {/* Status Filter */}
+            <section className="space-y-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
-                        <Filter className="w-4 h-4 text-dark-400" />
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="px-3 py-1.5 rounded-lg bg-dark-800 border border-dark-600 text-white text-sm focus:outline-none focus:border-accent-500/50"
-                        >
-                            {STATUS_OPTIONS.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        <Calendar className="h-5 w-5 text-teal-800" />
+                        <h2 className="text-base font-semibold text-slate-950">Matches and events</h2>
+                    </div>
+                    <div className="flex items-center gap-2 sm:w-72">
+                        <Filter className="h-4 w-4 text-slate-500" />
+                        <SelectInput value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                            {STATUS_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
                             ))}
-                        </select>
+                        </SelectInput>
                     </div>
                 </div>
 
                 {loadingE ? (
-                    <div className="space-y-3">
-                        {Array.from({ length: 3 }).map((_, i) => (
-                            <div key={i} className="glass-card p-5 animate-pulse">
-                                <div className="h-5 bg-dark-700 rounded w-2/3 mb-2" />
-                                <div className="h-4 bg-dark-700 rounded w-1/3" />
-                            </div>
-                        ))}
-                    </div>
+                    <LoadingRows count={3} />
                 ) : events?.length === 0 ? (
-                    <div className="glass-card p-8 text-center">
-                        <p className="text-dark-400">
-                            {statusFilter === '' 
-                                ? 'No active matches (upcoming or live) for this tournament.' 
-                                : statusFilter === 'all'
-                                    ? 'No events created yet for this tournament.'
-                                    : `No ${statusFilter} matches found.`
-                            }
-                        </p>
-                        {statusFilter === '' && (
-                            <button 
-                                onClick={() => setStatusFilter('all')}
-                                className="mt-3 text-sm text-accent-400 hover:underline"
-                            >
+                    <EmptyState
+                        icon={<Calendar className="h-6 w-6" />}
+                        title={statusFilter === '' ? 'No active matches' : 'No matches found'}
+                        description={statusFilter === '' ? 'There are no upcoming or live matches for this tournament.' : 'Try a different status filter.'}
+                        action={statusFilter === '' && (
+                            <button onClick={() => setStatusFilter('all')} className="text-sm font-semibold text-teal-800 hover:text-teal-950">
                                 View all matches
                             </button>
                         )}
-                    </div>
+                    />
                 ) : (
-                    <div className="space-y-3">
+                    <Panel className="divide-y divide-slate-200 overflow-hidden">
                         {events.map((event) => (
                             <Link
                                 key={event.id}
                                 to={`/events/${event.id}`}
-                                className="glass-card p-5 block hover:border-accent-500/30 transition-all group"
+                                className="group flex items-center justify-between gap-4 p-4 transition hover:bg-slate-50"
                             >
-                                <div className="flex items-center justify-between">
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-semibold text-white group-hover:text-accent-400 transition-colors truncate">
-                                            {event.title}
-                                        </h3>
-                                        <div className="flex items-center gap-3 mt-2">
-                                            <span className={`badge badge-${event.status === 'live' ? 'open' : event.status === 'upcoming' ? 'coming-soon' : 'settled'}`}>
-                                                {event.status}
+                                <div className="min-w-0">
+                                    <h3 className="truncate text-base font-semibold text-slate-950">{event.title}</h3>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                        <Badge status={event.status} />
+                                        {event.starts_at && (
+                                            <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
+                                                <Calendar className="h-3.5 w-3.5" />
+                                                {formatDateTime(event.starts_at)}
                                             </span>
-                                            {event.starts_at && (
-                                                <span className="text-xs text-dark-400 flex items-center gap-1">
-                                                    <Calendar className="w-3 h-3" />
-                                                    {formatDateTime(event.starts_at)}
-                                                </span>
-                                            )}
-                                        </div>
-                                        {event.description && (
-                                            <p className="text-sm text-dark-400 mt-1">{event.description}</p>
                                         )}
                                     </div>
-                                    <ArrowRight className="w-5 h-5 text-dark-500 group-hover:text-accent-400 transition-colors shrink-0 ml-4" />
+                                    {event.description && <p className="mt-1 text-sm text-slate-500">{event.description}</p>}
                                 </div>
+                                <ArrowRight className="h-5 w-5 shrink-0 text-slate-400 transition group-hover:text-teal-800" />
                             </Link>
                         ))}
-                    </div>
+                    </Panel>
                 )}
-            </div>
+            </section>
         </div>
     );
 }

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Trophy, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Trophy, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Button, IconButton, TextInput } from '../components/ui';
 
 export default function LoginPage() {
     const { login } = useAuth();
@@ -22,106 +23,92 @@ export default function LoginPage() {
         setLoading(true);
         try {
             await login(email, password);
-            toast.success('Welcome back!');
+            toast.success('Welcome back');
             navigate('/');
         } catch (err) {
-            const msg = err.response?.data?.detail || 'Login failed. Check your credentials.';
-            toast.error(msg);
+            toast.error(err.response?.data?.detail || 'Login failed. Check your credentials.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-dark-950 flex items-center justify-center px-4">
-            {/* Background glow effects */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent-500/5 rounded-full blur-3xl" />
-                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-500/5 rounded-full blur-3xl" />
-            </div>
-
-            <div className="w-full max-w-md relative">
-                {/* Logo */}
-                <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-accent-500 to-emerald-400 shadow-glow-green mb-4">
-                        <Trophy className="w-8 h-8 text-white" />
-                    </div>
-                    <h1 className="text-3xl font-bold gradient-text">BetArena</h1>
-                    <p className="text-dark-400 mt-2">
-                        Private football betting platform
-                    </p>
-                </div>
-
-                {/* Login card */}
-                <div className="glass-card p-8">
-                    <h2 className="text-xl font-semibold text-white mb-6">Sign in to your account</h2>
-
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        {/* Email */}
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-dark-300 mb-2">
-                                Email address
-                            </label>
-                            <input
-                                id="email"
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="you@example.com"
-                                autoComplete="email"
-                                className="w-full px-4 py-3 rounded-xl bg-dark-700/60 border border-dark-500/40
-                         text-white placeholder-dark-400 focus:outline-none focus:border-accent-500/50
-                         focus:ring-1 focus:ring-accent-500/20 transition-colors"
-                            />
+        <div className="min-h-screen bg-stone-50 px-4 py-8 text-slate-950">
+            <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center">
+                <div className="grid w-full gap-10 lg:grid-cols-[1fr_440px] lg:items-center">
+                    <section className="hidden lg:block">
+                        <div className="max-w-xl">
+                            <div className="mb-6 inline-flex items-center gap-2 rounded-md border border-teal-200 bg-teal-50 px-3 py-1.5 text-sm font-semibold text-teal-900">
+                                <ShieldCheck className="h-4 w-4" />
+                                Private prediction market
+                            </div>
+                            <h1 className="text-5xl font-semibold tracking-tight text-slate-950">
+                                BetArena keeps football predictions focused, fair, and easy to run.
+                            </h1>
+                            <p className="mt-5 max-w-lg text-base leading-7 text-slate-600">
+                                Built for a private group, with virtual coins, controlled markets, admin settlement, and a simple record of every bet.
+                            </p>
                         </div>
+                    </section>
 
-                        {/* Password */}
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-dark-300 mb-2">
-                                Password
-                            </label>
-                            <div className="relative">
-                                <input
-                                    id="password"
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="••••••••"
-                                    autoComplete="current-password"
-                                    className="w-full px-4 py-3 pr-12 rounded-xl bg-dark-700/60 border border-dark-500/40
-                           text-white placeholder-dark-400 focus:outline-none focus:border-accent-500/50
-                           focus:ring-1 focus:ring-accent-500/20 transition-colors"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-400 hover:text-white transition-colors"
-                                >
-                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                </button>
+                    <section className="rounded-lg border border-slate-200 bg-white shadow-soft">
+                        <div className="border-b border-slate-200 px-7 py-6">
+                            <div className="flex items-center gap-3">
+                                <span className="flex h-11 w-11 items-center justify-center rounded-md bg-teal-800 text-white">
+                                    <Trophy className="h-6 w-6" />
+                                </span>
+                                <div>
+                                    <p className="text-xl font-semibold tracking-tight text-slate-950">BetArena</p>
+                                    <p className="text-sm text-slate-500">Invite-only football betting</p>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Submit */}
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="btn-primary w-full flex items-center justify-center gap-2"
-                        >
-                            {loading ? (
-                                <>
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                    Signing in...
-                                </>
-                            ) : (
-                                'Sign in'
-                            )}
-                        </button>
-                    </form>
+                        <form onSubmit={handleSubmit} className="space-y-5 px-7 py-6">
+                            <div>
+                                <label htmlFor="email" className="form-label">Email address</label>
+                                <TextInput
+                                    id="email"
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="you@example.com"
+                                    autoComplete="email"
+                                />
+                            </div>
 
-                    <p className="text-center text-dark-400 text-sm mt-6">
-                        Invite-only platform. Contact your admin for access.
-                    </p>
+                            <div>
+                                <label htmlFor="password" className="form-label">Password</label>
+                                <div className="relative">
+                                    <TextInput
+                                        id="password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="Enter password"
+                                        autoComplete="current-password"
+                                        className="pr-11"
+                                    />
+                                    <IconButton
+                                        type="button"
+                                        label={showPassword ? 'Hide password' : 'Show password'}
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-1 top-1/2 -translate-y-1/2"
+                                    >
+                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </IconButton>
+                                </div>
+                            </div>
+
+                            <Button type="submit" variant="primary" loading={loading} className="w-full py-3">
+                                Sign in
+                            </Button>
+
+                            <p className="text-center text-sm text-slate-500">
+                                Access is managed by your BetArena admin.
+                            </p>
+                        </form>
+                    </section>
                 </div>
             </div>
         </div>
