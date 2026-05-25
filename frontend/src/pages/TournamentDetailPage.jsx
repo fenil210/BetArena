@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTournament, useTournamentEvents, useTournamentMarkets } from '../hooks/useApi';
 import MarketCard from '../components/MarketCard';
-import { Trophy, Calendar, ArrowRight, Filter } from 'lucide-react';
+import { Trophy, Calendar, ArrowRight, Filter, CircleDot } from 'lucide-react';
 import { formatDateTime } from '../utils/formatDate';
 import { Badge, EmptyState, LoadingRows, PageHeader, Panel, SelectInput } from '../components/ui';
 
@@ -93,10 +93,13 @@ export default function TournamentDetailPage() {
                             <Link
                                 key={event.id}
                                 to={`/events/${event.id}`}
-                                className="group flex items-center justify-between gap-4 p-4 transition hover:bg-slate-50"
+                                className="match-row group flex items-center justify-between gap-4 p-4 transition hover:bg-slate-50"
                             >
                                 <div className="min-w-0">
-                                    <h3 className="truncate text-base font-semibold text-slate-950">{event.title}</h3>
+                                    <h3 className="flex items-center gap-2 truncate text-base font-semibold text-slate-950">
+                                        {event.status === 'live' && <CircleDot className="h-4 w-4 shrink-0 text-teal-800" />}
+                                        <span className="truncate">{event.title}</span>
+                                    </h3>
                                     <div className="mt-2 flex flex-wrap items-center gap-2">
                                         <Badge status={event.status} />
                                         {event.starts_at && (

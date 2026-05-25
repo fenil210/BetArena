@@ -94,7 +94,7 @@ export default function MarketCard({ market }) {
                                                 <span>{trend.bet_count} bets</span>
                                             </div>
                                             <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                                                <div className="h-full rounded-full bg-teal-700" style={{ width: `${trend.percentage}%` }} />
+                                                <div className="market-trend-fill h-full rounded-full bg-teal-700" style={{ width: `${trend.percentage}%` }} />
                                             </div>
                                         </div>
                                     )}
@@ -123,8 +123,8 @@ export default function MarketCard({ market }) {
                     )}
                     {hasTrends && market.status === 'open' && (
                         <p className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-slate-500">
-                            <TrendingUp className="h-4 w-4" />
-                            {trendsData.total_bets} total bets
+                            <TrendingUp className="h-4 w-4 text-teal-800" />
+                            Live market mix - {trendsData.total_bets} total bets
                         </p>
                     )}
                 </div>

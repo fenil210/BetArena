@@ -12,6 +12,7 @@ import {
     CalendarDays,
 } from 'lucide-react';
 import { Badge, EmptyState, LoadingRows, Panel, SectionHeader, StatCard } from '../components/ui';
+import LiveMatchTicker from '../components/LiveMatchTicker';
 
 export default function DashboardPage() {
     const { user } = useAuth();
@@ -50,6 +51,8 @@ export default function DashboardPage() {
                     </div>
                 </div>
             </Panel>
+
+            <LiveMatchTicker tournaments={tournaments || []} />
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
                 <div className="space-y-6">
