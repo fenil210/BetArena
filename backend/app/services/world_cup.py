@@ -173,7 +173,7 @@ def ensure_default_match_market(db: Session, tournament: Tournament, event: Even
         tournament_id=tournament.id,
         question=f"Match result: {event.title}",
         market_type="match_result",
-        status="open" if not event.starts_at or event.starts_at > datetime.now(timezone.utc) else "locked",
+        status="coming_soon",
     )
     db.add(market)
     db.flush()
