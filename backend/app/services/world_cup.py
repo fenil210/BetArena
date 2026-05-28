@@ -18,7 +18,6 @@ from app.services.football_api import (
 )
 
 WORLD_CUP_TOURNAMENT_NAME = "FIFA World Cup 2026"
-GROUP_STAGE = "GROUP_STAGE"
 
 
 def provider_status_to_event_status(status: str | None) -> str:
@@ -158,6 +157,9 @@ def upsert_event(db: Session, tournament: Tournament, item: dict) -> Event:
 
 
 def ensure_default_match_market(db: Session, tournament: Tournament, event: Event, item: dict) -> bool:
+    if not item.get("home_team_id") or not item.get("away_team_id"):
+        return False
+
     existing = (
         db.query(Market)
         .filter(Market.event_id == event.id, Market.market_type == "match_result")
@@ -226,7 +228,6 @@ async def bootstrap_world_cup(db: Session, reset: bool = False) -> dict:
     fixtures = await fetch_fixtures_for_competition(
         WORLD_CUP_COMPETITION_ID,
         season=WORLD_CUP_SEASON,
-        stage=GROUP_STAGE,
     )
 
     summary = {
@@ -241,10 +242,6 @@ async def bootstrap_world_cup(db: Session, reset: bool = False) -> dict:
     }
 
     for index, item in enumerate(fixtures, start=1):
-        if not item.get("home_team_id") or not item.get("away_team_id"):
-            summary["skipped"] += 1
-            continue
-
         for side in ("home_team", "away_team"):
             team = upsert_team(db, item[side])
             if team:

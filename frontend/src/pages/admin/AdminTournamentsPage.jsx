@@ -1,52 +1,26 @@
 import { useState } from 'react';
 import {
     useTournaments,
-    useCompetitions,
-    useSyncCompetitions,
+    useBootstrapWorldCup,
     useSyncTeams,
     useSyncFixtures,
 } from '../../hooks/useApi';
 import client from '../../api/client';
-import { Trophy, RefreshCw, Plus, Loader2 } from 'lucide-react';
+import { Trophy, RefreshCw, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Badge, Button, FormField, LoadingRows, PageHeader, Panel, SelectInput, TextInput } from '../../components/ui';
+import { Badge, Button, LoadingRows, PageHeader, Panel, SelectInput } from '../../components/ui';
 
 export default function AdminTournamentsPage() {
     const { data: tournaments, isLoading, refetch } = useTournaments();
-    const { data: competitions } = useCompetitions();
-    const syncComps = useSyncCompetitions();
-    const [showCreate, setShowCreate] = useState(false);
-    const [name, setName] = useState('');
-    const [compId, setCompId] = useState('');
-    const [creating, setCreating] = useState(false);
+    const bootstrapWorldCup = useBootstrapWorldCup();
 
-    const handleCreate = async (e) => {
-        e.preventDefault();
-        if (!name || !compId) return;
-        setCreating(true);
+    const handleBootstrap = async (reset = false) => {
         try {
-            await client.post('/admin/tournaments', {
-                name,
-                competition_id: parseInt(compId),
-            });
-            toast.success('Tournament created');
-            setShowCreate(false);
-            setName('');
-            setCompId('');
+            const data = await bootstrapWorldCup.mutateAsync({ reset });
+            toast.success(`World Cup ready: ${data.fixtures_stored} fixtures, ${data.markets_created} markets`);
             refetch();
         } catch (err) {
-            toast.error(err.response?.data?.detail || 'Failed');
-        } finally {
-            setCreating(false);
-        }
-    };
-
-    const handleSyncComps = async () => {
-        try {
-            const data = await syncComps.mutateAsync();
-            toast.success(`Synced: ${data.created} created, ${data.updated} updated`);
-        } catch (err) {
-            toast.error(err.response?.data?.detail || 'Sync failed');
+            toast.error(err.response?.data?.detail || 'World Cup sync failed');
         }
     };
 
@@ -58,40 +32,16 @@ export default function AdminTournamentsPage() {
                 description="Keep the World Cup schedule, teams, and fixtures synchronized."
                 actions={(
                     <>
-                        <Button onClick={handleSyncComps} loading={syncComps.isPending}>
+                        <Button onClick={() => handleBootstrap(false)} loading={bootstrapWorldCup.isPending}>
                             <RefreshCw className="h-4 w-4" />
                             Sync World Cup
                         </Button>
-                        <Button variant="primary" onClick={() => setShowCreate(!showCreate)}>
-                            <Plus className="h-4 w-4" />
-                            Create
+                        <Button variant="danger" onClick={() => handleBootstrap(true)} loading={bootstrapWorldCup.isPending}>
+                            Reset and load
                         </Button>
                     </>
                 )}
             />
-
-            {showCreate && (
-                <Panel as="form" onSubmit={handleCreate} className="space-y-4 p-5">
-                    <h3 className="text-base font-semibold text-slate-950">New tournament</h3>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <FormField label="Tournament name">
-                            <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="FIFA World Cup 2026" />
-                        </FormField>
-                        <FormField label="Competition">
-                            <SelectInput value={compId} onChange={(e) => setCompId(e.target.value)}>
-                                <option value="">Select competition...</option>
-                                {competitions?.map((competition) => (
-                                    <option key={competition.id} value={competition.id}>{competition.name} ({competition.code})</option>
-                                ))}
-                            </SelectInput>
-                        </FormField>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button type="submit" variant="primary" loading={creating}>Create tournament</Button>
-                        <Button type="button" onClick={() => setShowCreate(false)}>Cancel</Button>
-                    </div>
-                </Panel>
-            )}
 
             {isLoading ? (
                 <LoadingRows count={3} />

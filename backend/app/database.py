@@ -56,3 +56,7 @@ def ensure_runtime_schema():
                     conn.execute(
                         text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}")
                     )
+
+        if engine.dialect.name == "postgresql" and "matches" in existing_tables:
+            conn.execute(text("ALTER TABLE matches ALTER COLUMN home_team_id DROP NOT NULL"))
+            conn.execute(text("ALTER TABLE matches ALTER COLUMN away_team_id DROP NOT NULL"))

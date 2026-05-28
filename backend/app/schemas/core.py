@@ -56,8 +56,8 @@ class PlayerOut(BaseModel):
 class MatchOut(BaseModel):
     id: int
     competition_id: int
-    home_team_id: int
-    away_team_id: int
+    home_team_id: int | None = None
+    away_team_id: int | None = None
     kickoff_at: datetime | None = None
     matchday: int | None = None
     stage: str | None = None

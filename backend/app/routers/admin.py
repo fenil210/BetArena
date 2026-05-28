@@ -25,7 +25,7 @@ from app.services.football_api import (
     fetch_competition_stages,
     FootballAPIError,
 )
-from app.services.world_cup import GROUP_STAGE, bootstrap_world_cup
+from app.services.world_cup import bootstrap_world_cup
 
 router = APIRouter(prefix="/admin", tags=["Admin Sync"])
 
@@ -166,7 +166,6 @@ async def sync_fixtures(
         api_data = await fetch_fixtures_for_competition(
             tournament.competition_id,
             season=WORLD_CUP_SEASON if tournament.competition_id == WORLD_CUP_COMPETITION_ID else None,
-            stage=GROUP_STAGE if tournament.competition_id == WORLD_CUP_COMPETITION_ID else None,
         )
     except FootballAPIError as e:
         raise HTTPException(status_code=502, detail=str(e))
@@ -175,13 +174,11 @@ async def sync_fixtures(
     summary = SyncSummary()
 
     for item in api_data:
-        # Skip matches with missing team data
-        if not item.get("home_team_id") or not item.get("away_team_id"):
-            summary.skipped += 1
-            continue
-
         for side in ("home_team", "away_team"):
             team_item = item.get(side) or {}
+            if not team_item.get("id") or not team_item.get("name"):
+                continue
+
             team = db.query(Team).filter(Team.id == team_item.get("id")).first()
             if team:
                 team.name = team_item.get("name")

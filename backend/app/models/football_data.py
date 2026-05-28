@@ -113,11 +113,11 @@ class Match(Base):
     competition_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("competitions.id"), nullable=False
     )
-    home_team_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("teams.id"), nullable=False
+    home_team_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("teams.id"), nullable=True
     )
-    away_team_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("teams.id"), nullable=False
+    away_team_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("teams.id"), nullable=True
     )
     kickoff_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

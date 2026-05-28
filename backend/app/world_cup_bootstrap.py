@@ -7,8 +7,6 @@ Usage:
 
 import argparse
 import asyncio
-import os
-
 from app.database import SessionLocal, init_db
 from app.services.world_cup import bootstrap_world_cup
 
@@ -22,8 +20,7 @@ def main():
     db = SessionLocal()
     try:
         summary = asyncio.run(bootstrap_world_cup(db, reset=args.reset))
-        target = os.getenv("DATABASE_URL", "configured database")
-        print(f"World Cup bootstrap complete for {target}")
+        print("World Cup bootstrap complete for configured database")
         print(summary)
     finally:
         db.close()
