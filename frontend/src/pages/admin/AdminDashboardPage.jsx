@@ -1,10 +1,12 @@
-import { useBootstrapWorldCup, useUsers } from '../../hooks/useApi';
-import { LayoutDashboard, Users, Coins, Activity, RefreshCw, Trophy } from 'lucide-react';
+import { useBootstrapWorldCup, useUsers, useWorldCupHealth } from '../../hooks/useApi';
+import { LayoutDashboard, Users, Coins, Activity, RefreshCw, Trophy, AlertTriangle, Clock, Target } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button, PageHeader, Panel, StatCard } from '../../components/ui';
+import { Badge, Button, PageHeader, Panel, StatCard } from '../../components/ui';
+import { formatDateTime } from '../../utils/formatDate';
 
 export default function AdminDashboardPage() {
     const { data: users, isLoading } = useUsers();
+    const { data: health, isLoading: loadingHealth } = useWorldCupHealth();
     const bootstrapWorldCup = useBootstrapWorldCup();
 
     const bettingUsers = users?.filter((user) => !user.is_admin) || [];
@@ -58,6 +60,73 @@ export default function AdminDashboardPage() {
                         </Button>
                     </div>
                 </div>
+            </Panel>
+
+            <Panel className="p-5">
+                <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <Activity className="h-5 w-5 text-teal-800" />
+                            <h2 className="text-base font-semibold text-slate-950">Automation health</h2>
+                        </div>
+                        <p className="mt-1 text-sm text-slate-600">
+                            Fixture sync state, odds readiness, and any markets that need operator action.
+                        </p>
+                    </div>
+                    {health && (
+                        <Badge status={health.automation_ok ? 'open' : 'locked'}>
+                            {health.automation_ok ? 'Healthy' : 'Needs attention'}
+                        </Badge>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                    <StatCard icon={<Trophy className="h-5 w-5" />} label="Fixtures" value={health?.fixture_count ?? '-'} loading={loadingHealth} tone="teal" />
+                    <StatCard icon={<Target className="h-5 w-5" />} label="TBD fixtures" value={health?.tbd_count ?? '-'} loading={loadingHealth} tone="blue" />
+                    <StatCard icon={<Clock className="h-5 w-5" />} label="Pending odds" value={health?.pending_odds_count ?? '-'} loading={loadingHealth} tone="gold" />
+                    <StatCard icon={<Activity className="h-5 w-5" />} label="Locked markets" value={health?.locked_market_count ?? '-'} loading={loadingHealth} />
+                    <StatCard icon={<AlertTriangle className="h-5 w-5" />} label="Action needed" value={health?.attention_required_count ?? '-'} loading={loadingHealth} tone={health?.attention_required_count ? 'red' : 'teal'} />
+                </div>
+
+                {health && (
+                    <div className="mt-5 grid gap-4 lg:grid-cols-[280px_1fr]">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Last sync</p>
+                            <p className="mt-2 text-sm font-semibold text-slate-950">
+                                {health.last_sync_at ? formatDateTime(health.last_sync_at) : 'Not synced yet'}
+                            </p>
+                            <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                                {Object.entries(health.market_status_counts || {}).map(([status, count]) => (
+                                    <div key={status} className="rounded-md border border-slate-200 bg-white px-3 py-2">
+                                        <p className="text-xs font-medium capitalize text-slate-500">{status.replace('_', ' ')}</p>
+                                        <p className="mt-1 font-semibold text-slate-950">{count}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Operator queue</p>
+                            {health.attention_markets?.length ? (
+                                <div className="mt-3 space-y-2">
+                                    {health.attention_markets.map((market) => (
+                                        <div key={market.id} className="rounded-md border border-red-200 bg-red-50 px-3 py-2">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <p className="min-w-0 text-sm font-semibold text-slate-950">{market.question}</p>
+                                                <Badge status={market.status}>{market.status}</Badge>
+                                            </div>
+                                            <p className="mt-1 text-xs text-red-700">{market.reason}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="mt-3 rounded-md border border-teal-200 bg-teal-50 px-3 py-4 text-sm font-medium text-teal-900">
+                                    No stale open markets. Fixture automation is in a clean state.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </Panel>
         </div>
     );

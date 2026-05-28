@@ -8,6 +8,7 @@ from app.models.bet import Bet
 from app.models.market import Market, Selection
 from app.models.event import Event
 from app.schemas.core import LeaderboardEntry
+from app.services.rankings import bet_profit, global_rank_movements, movement_label, settlement_profit_delta
 
 router = APIRouter(tags=["Leaderboard"])
 
@@ -21,11 +22,12 @@ def global_leaderboard(
     users = (
         db.query(User)
         .filter(User.is_active == True, User.is_admin == False)
-        .order_by(User.balance.desc())
+        .order_by(User.balance.desc(), User.username.asc())
         .all()
     )
 
     result = []
+    movements = global_rank_movements(db)
     for rank, user in enumerate(users, start=1):
         total_bets = db.query(func.count(Bet.id)).filter(Bet.user_id == user.id).scalar() or 0
         won_bets = (
@@ -33,6 +35,7 @@ def global_leaderboard(
             .filter(Bet.user_id == user.id, Bet.status == "won")
             .scalar() or 0
         )
+        movement = movements.get(user.id)
         result.append(
             LeaderboardEntry(
                 rank=rank,
@@ -41,6 +44,9 @@ def global_leaderboard(
                 balance=user.balance,
                 total_bets=total_bets,
                 won_bets=won_bets,
+                previous_rank=movement.previous_rank if movement else rank,
+                rank_change=movement.rank_change if movement else 0,
+                movement=movement.movement if movement else "same",
             )
         )
     return result
@@ -99,27 +105,58 @@ def tournament_leaderboard(
         if not user_bets:
             continue
 
-        total_staked = sum(b.stake for b in user_bets)
-        total_won = sum(b.potential_payout for b in user_bets if b.status == "won")
-        profit = total_won - total_staked
+        profit = sum(bet_profit(bet) for bet in user_bets)
         total_bets = len(user_bets)
         won_bets = sum(1 for b in user_bets if b.status == "won")
 
         entries.append(
-            LeaderboardEntry(
-                rank=0,  # will be set after sorting
-                user_id=user.id,
-                username=user.username,
-                balance=user.balance,
-                total_bets=total_bets,
-                won_bets=won_bets,
-                profit=profit,
-            )
+            {
+                "user": user,
+                "profit": profit,
+                "total_bets": total_bets,
+                "won_bets": won_bets,
+                "bets": user_bets,
+            }
         )
 
     # Sort by profit descending and assign ranks
-    entries.sort(key=lambda e: e.profit, reverse=True)
-    for i, entry in enumerate(entries):
-        entry.rank = i + 1
+    entries.sort(key=lambda e: (-e["profit"], e["user"].username.lower()))
+    current_ranks = {entry["user"].id: index + 1 for index, entry in enumerate(entries)}
 
-    return entries
+    latest_settlement = (
+        db.query(func.max(Bet.settled_at))
+        .filter(Bet.selection_id.in_(selection_ids), Bet.status.in_(["won", "lost", "voided", "replaced"]))
+        .scalar()
+    )
+    previous_profit = {entry["user"].id: entry["profit"] for entry in entries}
+    if latest_settlement:
+        latest_bets = (
+            db.query(Bet)
+            .filter(Bet.selection_id.in_(selection_ids), Bet.settled_at == latest_settlement)
+            .all()
+        )
+        for bet in latest_bets:
+            if bet.user_id in previous_profit:
+                previous_profit[bet.user_id] -= settlement_profit_delta(bet)
+
+    previous_order = sorted(
+        entries,
+        key=lambda entry: (-previous_profit[entry["user"].id], entry["user"].username.lower()),
+    )
+    previous_ranks = {entry["user"].id: index + 1 for index, entry in enumerate(previous_order)}
+
+    return [
+        LeaderboardEntry(
+            rank=index + 1,
+            user_id=entry["user"].id,
+            username=entry["user"].username,
+            balance=entry["user"].balance,
+            total_bets=entry["total_bets"],
+            won_bets=entry["won_bets"],
+            profit=entry["profit"],
+            previous_rank=previous_ranks.get(entry["user"].id),
+            rank_change=(previous_ranks.get(entry["user"].id) or current_ranks[entry["user"].id]) - current_ranks[entry["user"].id],
+            movement=movement_label((previous_ranks.get(entry["user"].id) or current_ranks[entry["user"].id]) - current_ranks[entry["user"].id]),
+        )
+        for index, entry in enumerate(entries)
+    ]

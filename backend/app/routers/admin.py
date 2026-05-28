@@ -8,6 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.dependencies import get_db, require_admin
+from app.models.activity import ActivityFeed
+from app.models.event import Event
+from app.models.market import Market
 from app.models.user import User
 from app.models.football_data import Competition, Team, Player, Match, competition_teams
 from app.models.tournament import Tournament
@@ -85,6 +88,107 @@ async def bootstrap_world_cup_endpoint(
         return await bootstrap_world_cup(db, reset=reset)
     except FootballAPIError as e:
         raise HTTPException(status_code=502, detail=str(e))
+
+
+@router.get("/world-cup/health")
+def world_cup_health(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Operational health summary for the World Cup automation."""
+    now = datetime.now(timezone.utc)
+    competition = db.query(Competition).filter(Competition.id == WORLD_CUP_COMPETITION_ID).first()
+    tournament = db.query(Tournament).filter(Tournament.competition_id == WORLD_CUP_COMPETITION_ID).first()
+
+    fixture_query = db.query(Match).filter(Match.competition_id == WORLD_CUP_COMPETITION_ID)
+    fixture_count = fixture_query.count()
+    tbd_count = fixture_query.filter((Match.home_team_id == None) | (Match.away_team_id == None)).count()
+
+    events_query = db.query(Event)
+    if tournament:
+        events_query = events_query.filter(Event.tournament_id == tournament.id)
+    else:
+        events_query = events_query.filter(False)
+    event_count = events_query.count()
+
+    market_query = db.query(Market)
+    if tournament:
+        market_query = market_query.filter(Market.tournament_id == tournament.id)
+    else:
+        market_query = market_query.filter(False)
+
+    market_status_counts = {
+        "coming_soon": market_query.filter(Market.status == "coming_soon").count(),
+        "open": market_query.filter(Market.status == "open").count(),
+        "locked": market_query.filter(Market.status == "locked").count(),
+        "settled": market_query.filter(Market.status == "settled").count(),
+        "voided": market_query.filter(Market.status == "voided").count(),
+    }
+
+    stale_open = (
+        market_query
+        .join(Event, Market.event_id == Event.id)
+        .filter(Market.status == "open", Event.starts_at.isnot(None), Event.starts_at <= now)
+        .all()
+    )
+    past_pending = (
+        market_query
+        .join(Event, Market.event_id == Event.id)
+        .filter(Market.status == "coming_soon", Event.starts_at.isnot(None), Event.starts_at <= now)
+        .all()
+    )
+
+    last_bootstrap = (
+        db.query(ActivityFeed)
+        .filter(ActivityFeed.action_type == "world_cup_bootstrap")
+        .order_by(ActivityFeed.created_at.desc())
+        .first()
+    )
+
+    attention_markets = []
+    for market in stale_open[:8]:
+        attention_markets.append({
+            "id": str(market.id),
+            "question": market.question,
+            "status": market.status,
+            "starts_at": market.event.starts_at if market.event else None,
+            "reason": "Kickoff passed while market stayed open",
+        })
+    for market in past_pending[:8 - len(attention_markets)]:
+        attention_markets.append({
+            "id": str(market.id),
+            "question": market.question,
+            "status": market.status,
+            "starts_at": market.event.starts_at if market.event else None,
+            "reason": "Kickoff passed before odds were opened",
+        })
+
+    return {
+        "competition": {
+            "id": competition.id if competition else None,
+            "name": competition.name if competition else None,
+            "code": competition.code if competition else None,
+            "synced_at": competition.synced_at if competition else None,
+        },
+        "tournament": {
+            "id": str(tournament.id) if tournament else None,
+            "name": tournament.name if tournament else None,
+            "status": tournament.status if tournament else None,
+        },
+        "last_sync_at": last_bootstrap.created_at if last_bootstrap else (competition.synced_at if competition else None),
+        "fixture_count": fixture_count,
+        "event_count": event_count,
+        "tbd_count": tbd_count,
+        "known_fixture_count": fixture_count - tbd_count,
+        "market_status_counts": market_status_counts,
+        "pending_odds_count": market_status_counts["coming_soon"],
+        "locked_market_count": market_status_counts["locked"],
+        "stale_open_market_count": len(stale_open),
+        "past_pending_market_count": len(past_pending),
+        "attention_required_count": len(stale_open) + len(past_pending),
+        "attention_markets": attention_markets,
+        "automation_ok": fixture_count >= 104 and tbd_count >= 32 and len(stale_open) == 0,
+    }
 
 
 # ─────────────── Sync teams for a tournament ───────────────

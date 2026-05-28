@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -12,6 +12,7 @@ from app.models.market import Market, Selection
 from app.models.event import Event
 from app.models.tournament import Tournament
 from app.schemas.user import UserListItem, UserProfile, AdjustBalanceRequest
+from app.services.rankings import current_global_rank
 
 router = APIRouter(tags=["Users"])
 
@@ -117,7 +118,7 @@ def get_user_stats(
     user_id = current_user.id
     
     # Last 30 days win rate
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
     
     recent_bets = (
         db.query(Bet)
@@ -125,31 +126,43 @@ def get_user_stats(
         .all()
     )
     
-    total_recent = len(recent_bets)
-    won_recent = sum(1 for b in recent_bets if b.status == "won")
-    recent_win_rate = (won_recent / total_recent * 100) if total_recent > 0 else 0
+    settled_recent = [b for b in recent_bets if b.status in ("won", "lost")]
+    won_recent = sum(1 for b in settled_recent if b.status == "won")
+    recent_win_rate = (won_recent / len(settled_recent) * 100) if settled_recent else 0
     
     # All-time stats
     all_bets = db.query(Bet).filter(Bet.user_id == user_id).all()
     total_bets = len(all_bets)
+    open_bets = sum(1 for b in all_bets if b.status == "open")
     won_bets = sum(1 for b in all_bets if b.status == "won")
     lost_bets = sum(1 for b in all_bets if b.status == "lost")
-    all_time_win_rate = (won_bets / total_bets * 100) if total_bets > 0 else 0
+    settled_bets = [b for b in all_bets if b.status in ("won", "lost")]
+    all_time_win_rate = (won_bets / len(settled_bets) * 100) if settled_bets else 0
     
-    # Calculate total staked and total won
+    # Calculate settled economics. Open stakes are tracked separately so ROI is not
+    # distorted by wagers that have not resolved yet.
     total_staked = sum(b.stake for b in all_bets)
+    settled_staked = sum(b.stake for b in settled_bets)
     total_won = sum(b.potential_payout for b in all_bets if b.status == "won")
-    total_profit = total_won - total_staked
+    total_profit = sum(
+        (b.potential_payout - b.stake) if b.status == "won" else -b.stake
+        for b in settled_bets
+    )
+    biggest_win = max(
+        (b.potential_payout - b.stake for b in all_bets if b.status == "won"),
+        default=0,
+    )
+    current_rank, movement = current_global_rank(db, user_id)
     
     # Daily P/L for last 30 days (for chart)
     daily_stats = {}
     for bet in recent_bets:
-        day = bet.placed_at.strftime("%Y-%m-%d")
+        day = bet.placed_at.astimezone(timezone.utc).strftime("%Y-%m-%d")
         if day not in daily_stats:
             daily_stats[day] = {"profit": 0, "stake": 0}
         daily_stats[day]["stake"] += bet.stake
         if bet.status == "won":
-            daily_stats[day]["profit"] += bet.potential_payout
+            daily_stats[day]["profit"] += bet.potential_payout - bet.stake
         elif bet.status == "lost":
             daily_stats[day]["profit"] -= bet.stake
     
@@ -157,20 +170,73 @@ def get_user_stats(
         {"date": day, "profit": stats["profit"], "stake": stats["stake"]}
         for day, stats in sorted(daily_stats.items())
     ]
+
+    coin_events = []
+    for bet in all_bets:
+        coin_events.append((bet.placed_at, -bet.stake, "Stake placed"))
+        if bet.settled_at:
+            if bet.status == "won":
+                coin_events.append((bet.settled_at, bet.potential_payout, "Payout credited"))
+            elif bet.status in ("voided", "replaced"):
+                coin_events.append((bet.settled_at, bet.stake, "Stake returned"))
+
+    adjustments = (
+        db.query(ActivityFeed)
+        .filter(ActivityFeed.user_id == user_id, ActivityFeed.action_type == "balance_adjusted")
+        .all()
+    )
+    for activity in adjustments:
+        amount = (activity.metadata_json or {}).get("amount")
+        if isinstance(amount, int):
+            coin_events.append((activity.created_at, amount, "Admin adjustment"))
+
+    coin_events.sort(key=lambda item: item[0])
+    starting_balance = 0 if current_user.is_admin else 1000
+    running_balance = starting_balance
+    coin_history = [{
+        "date": current_user.created_at,
+        "balance": starting_balance,
+        "delta": 0,
+        "label": "Starting balance",
+    }]
+    for date, delta, label in coin_events:
+        running_balance += delta
+        coin_history.append({
+            "date": date,
+            "balance": running_balance,
+            "delta": delta,
+            "label": label,
+        })
+
+    if not coin_history or coin_history[-1]["balance"] != current_user.balance:
+        coin_history.append({
+            "date": datetime.now(timezone.utc),
+            "balance": current_user.balance,
+            "delta": current_user.balance - running_balance,
+            "label": "Current balance",
+        })
     
     return {
         "summary": {
             "total_bets": total_bets,
+            "open_bets": open_bets,
             "won_bets": won_bets,
             "lost_bets": lost_bets,
             "win_rate": round(all_time_win_rate, 1),
             "recent_win_rate": round(recent_win_rate, 1),
             "total_staked": total_staked,
+            "settled_staked": settled_staked,
             "total_won": total_won,
             "total_profit": total_profit,
-            "roi": round((total_profit / total_staked * 100), 1) if total_staked > 0 else 0,
+            "biggest_win": biggest_win,
+            "current_rank": current_rank,
+            "previous_rank": movement.previous_rank if movement else None,
+            "rank_change": movement.rank_change if movement else 0,
+            "rank_movement": movement.movement if movement else "same",
+            "roi": round((total_profit / settled_staked * 100), 1) if settled_staked > 0 else 0,
         },
         "daily_chart": daily_chart,
+        "coin_history": coin_history[-20:],
     }
 
 

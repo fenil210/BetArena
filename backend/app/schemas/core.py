@@ -267,3 +267,6 @@ class LeaderboardEntry(BaseModel):
     total_bets: int = 0
     won_bets: int = 0
     profit: int = 0  # for tournament-specific leaderboard
+    previous_rank: int | None = None
+    rank_change: int = 0
+    movement: str = "same"

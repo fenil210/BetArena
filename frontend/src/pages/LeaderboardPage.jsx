@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLeaderboard, useTournamentLeaderboard, useTournaments } from '../hooks/useApi';
 import { useAuth } from '../hooks/useAuth';
-import { Crown, Coins, Medal, TrendingUp, TrendingDown } from 'lucide-react';
+import { Crown, Coins, Medal, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { EmptyState, LoadingRows, PageHeader, Panel, SelectInput, cx } from '../components/ui';
 
 export default function LeaderboardPage() {
@@ -38,9 +38,10 @@ export default function LeaderboardPage() {
                 <EmptyState icon={<Crown className="h-6 w-6" />} title="No rankings yet" />
             ) : (
                 <Panel className="overflow-hidden">
-                    <div className="grid grid-cols-[64px_1fr_120px] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="grid grid-cols-[64px_1fr_110px_120px] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
                         <span>Rank</span>
                         <span>Player</span>
+                        <span>Move</span>
                         <span className="text-right">{isGlobal ? 'Balance' : 'P&L'}</span>
                     </div>
                     <div className="divide-y divide-slate-200">
@@ -49,7 +50,7 @@ export default function LeaderboardPage() {
                             const isMe = entry.user_id === user?.id;
                             const pnl = entry.pnl ?? entry.profit ?? 0;
                             return (
-                                <div key={entry.user_id} className={cx('grid grid-cols-[64px_1fr_120px] items-center gap-4 px-5 py-4', isMe && 'bg-teal-50/60')}>
+                                <div key={entry.user_id} className={cx('grid grid-cols-[64px_1fr_110px_120px] items-center gap-4 px-5 py-4', isMe && 'bg-teal-50/60')}>
                                     <div className="flex items-center justify-center">{rankIcon(rank)}</div>
                                     <div className="flex min-w-0 items-center gap-3">
                                         <div className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white', index < 3 ? 'bg-teal-800' : 'bg-slate-900')}>
@@ -62,6 +63,7 @@ export default function LeaderboardPage() {
                                             </p>
                                         </div>
                                     </div>
+                                    <RankMovement entry={entry} />
                                     {isGlobal ? (
                                         <div className="flex items-center justify-end gap-1 font-semibold text-amber-800">
                                             <Coins className="h-4 w-4" />
@@ -88,4 +90,23 @@ function rankIcon(rank) {
     if (rank === 2) return <Medal className="h-5 w-5 text-slate-500" />;
     if (rank === 3) return <Medal className="h-5 w-5 text-amber-600" />;
     return <span className="text-sm font-semibold text-slate-500">{rank}</span>;
+}
+
+function RankMovement({ entry }) {
+    const change = entry.rank_change || 0;
+    const movement = entry.movement || 'same';
+    const classes = {
+        up: 'border-teal-200 bg-teal-50 text-teal-800',
+        down: 'border-red-200 bg-red-50 text-red-700',
+        same: 'border-slate-200 bg-slate-50 text-slate-500',
+    };
+    const Icon = movement === 'up' ? TrendingUp : movement === 'down' ? TrendingDown : Minus;
+    const label = movement === 'same' ? 'No change' : `${change > 0 ? '+' : ''}${change}`;
+
+    return (
+        <span className={cx('inline-flex w-fit items-center gap-1 rounded-md border px-2 py-1 text-xs font-semibold', classes[movement])}>
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+        </span>
+    );
 }

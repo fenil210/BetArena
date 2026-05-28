@@ -187,6 +187,14 @@ export function useBootstrapWorldCup() {
     });
 }
 
+export function useWorldCupHealth() {
+    return useQuery({
+        queryKey: ['admin', 'world-cup', 'health'],
+        queryFn: () => client.get('/admin/world-cup/health').then(r => r.data),
+        refetchInterval: 30000,
+    });
+}
+
 export function useSyncTeams(tournamentId) {
     return useMutation({
         mutationFn: () => client.post(`/admin/tournaments/${tournamentId}/sync-teams`).then(r => r.data),
