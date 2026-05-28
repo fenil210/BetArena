@@ -19,6 +19,31 @@ export function formatDateTime(dateStr) {
     }) + ' UTC';
 }
 
+export function formatDateTimeInZone(dateStr, timeZone = 'UTC', suffix = timeZone) {
+    if (!dateStr) return '---';
+    const d = new Date(dateStr);
+    return d.toLocaleString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone,
+    }) + ` ${suffix}`;
+}
+
+export function formatDateInZone(dateStr, timeZone = 'UTC') {
+    if (!dateStr) return '---';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-CA', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone,
+    });
+}
+
 export function formatDate(dateStr) {
     if (!dateStr) return '—';
     const d = new Date(dateStr);

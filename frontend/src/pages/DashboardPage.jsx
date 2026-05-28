@@ -85,7 +85,7 @@ export default function DashboardPage() {
                                                     <Badge status={tournament.status} />
                                                     <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                                                         <CalendarDays className="h-3.5 w-3.5" />
-                                                        Competition {tournament.competition_id}
+                                                        World Cup schedule
                                                     </span>
                                                 </div>
                                             </div>

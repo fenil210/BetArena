@@ -220,6 +220,9 @@ async def bootstrap_world_cup(db: Session, reset: bool = False) -> dict:
         tournament.name = WORLD_CUP_TOURNAMENT_NAME
         tournament.status = "upcoming"
 
+    db.commit()
+    db.refresh(tournament)
+
     fixtures = await fetch_fixtures_for_competition(
         WORLD_CUP_COMPETITION_ID,
         season=WORLD_CUP_SEASON,
@@ -237,7 +240,7 @@ async def bootstrap_world_cup(db: Session, reset: bool = False) -> dict:
         "skipped": 0,
     }
 
-    for item in fixtures:
+    for index, item in enumerate(fixtures, start=1):
         if not item.get("home_team_id") or not item.get("away_team_id"):
             summary["skipped"] += 1
             continue
@@ -256,6 +259,9 @@ async def bootstrap_world_cup(db: Session, reset: bool = False) -> dict:
 
         summary["fixtures_stored"] += 1
         summary["events_created_or_updated"] += 1
+
+        if index % 12 == 0:
+            db.commit()
 
     db.add(
         ActivityFeed(

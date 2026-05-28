@@ -102,9 +102,7 @@ export default function LiveMatchTicker({ tournaments = [] }) {
                         </div>
                         <div className="rounded-md border border-slate-200 bg-white/85 p-3">
                             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Coverage</p>
-                            <p className="mt-1 text-lg font-semibold text-teal-900">
-                                {tournamentSlice.length || 0} comps
-                            </p>
+                            <p className="mt-1 text-lg font-semibold text-teal-900">{events.length || 0} fixtures</p>
                         </div>
                     </div>
                 </div>

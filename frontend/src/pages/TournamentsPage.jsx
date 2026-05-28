@@ -40,7 +40,7 @@ export default function TournamentsPage() {
                                 </div>
                                 <ArrowRight className="h-5 w-5 shrink-0 text-slate-400" />
                             </div>
-                            <p className="mt-4 text-sm text-slate-500">Competition ID {tournament.competition_id}</p>
+                            <p className="mt-4 text-sm text-slate-500">Fixtures, markets, and standings for this tournament.</p>
                         </Panel>
                     ))}
                 </div>

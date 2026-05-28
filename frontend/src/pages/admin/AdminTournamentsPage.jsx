@@ -55,12 +55,12 @@ export default function AdminTournamentsPage() {
             <PageHeader
                 icon={<Trophy className="h-6 w-6" />}
                 title="Tournaments"
-                description="Create competitions and keep teams and fixtures synchronized."
+                description="Keep the World Cup schedule, teams, and fixtures synchronized."
                 actions={(
                     <>
                         <Button onClick={handleSyncComps} loading={syncComps.isPending}>
                             <RefreshCw className="h-4 w-4" />
-                            Sync competitions
+                            Sync World Cup
                         </Button>
                         <Button variant="primary" onClick={() => setShowCreate(!showCreate)}>
                             <Plus className="h-4 w-4" />
@@ -140,7 +140,7 @@ function TournamentRow({ tournament, onRefetch }) {
                 <h3 className="font-semibold text-slate-950">{tournament.name}</h3>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Badge status={tournament.status} />
-                    <span className="text-xs font-medium text-slate-500">Competition ID {tournament.competition_id}</span>
+                    <span className="text-xs font-medium text-slate-500">World Cup fixture source</span>
                 </div>
             </div>
             <div className="flex flex-wrap gap-2">
