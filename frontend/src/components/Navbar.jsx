@@ -9,9 +9,12 @@ import {
     Shield,
     Menu,
     X,
+    Moon,
+    Sun,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cx, IconButton } from './ui';
+import { useTheme } from '../context/ThemeContext';
 
 const navItems = [
     { to: '/', label: 'Dashboard' },
@@ -26,6 +29,7 @@ export default function Navbar() {
     const location = useLocation();
     const [menuOpen, setMenuOpen] = useState(false);
     const { data: unreadCount } = useUnreadNotificationCount();
+    const { isDark, toggleTheme } = useTheme();
 
     if (!user) return null;
 
@@ -73,6 +77,14 @@ export default function Navbar() {
                         )}
                     </Link>
 
+                    <IconButton
+                        label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+                        onClick={toggleTheme}
+                        className="theme-toggle"
+                    >
+                        {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                    </IconButton>
+
                     <div className="hidden items-center gap-1 md:flex">
                         <Link
                             to="/profile"
@@ -116,6 +128,13 @@ export default function Navbar() {
                         <MobileLink to="/notifications" current={location.pathname} onClick={() => setMenuOpen(false)}>
                             Notifications
                         </MobileLink>
+                        <button
+                            onClick={toggleTheme}
+                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                        >
+                            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                            {isDark ? 'Light theme' : 'Dark theme'}
+                        </button>
                         <MobileLink to="/profile" current={location.pathname} onClick={() => setMenuOpen(false)}>
                             Profile
                         </MobileLink>

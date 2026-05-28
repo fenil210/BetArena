@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en" class="theme-dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
@@ -10,8 +10,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <title>BetArena — Football Betting</title>
   </head>
-  <body class="bg-dark-950 text-white font-sans antialiased">
+  <body>
     <div id="root"></div>
+    <script>
+      (() => {
+        const theme = localStorage.getItem('betarena_theme') === 'light' ? 'light' : 'dark';
+        const root = document.documentElement;
+        root.classList.toggle('theme-dark', theme === 'dark');
+        root.classList.toggle('theme-light', theme === 'light');
+        root.style.colorScheme = theme;
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
